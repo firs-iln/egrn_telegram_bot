@@ -1,0 +1,12 @@
+version: "1.0"
+
+services:
+  egrn_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: egrn_bot
+    restart: always
+    command: sh -c "python main.py"
+    env_file:
+      - .env

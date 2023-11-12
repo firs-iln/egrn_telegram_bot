@@ -1,0 +1,5 @@
+/venv/
+/code/files/
+/code/parser/test/
+/code/parser/__pycache__/
+.DS_Store
