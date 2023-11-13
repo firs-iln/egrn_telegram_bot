@@ -1,5 +1,4 @@
 import os
-import pprint
 import re
 import zipfile
 
@@ -7,7 +6,7 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboard
 from telegram.ext import ContextTypes, ApplicationBuilder, CommandHandler, MessageHandler, ConversationHandler, \
     CallbackQueryHandler
 from telegram.ext.filters import TEXT, Document, COMMAND
-from parser.parse_pdf import find_info, repr_info, check_pdf_to_be_valid_doc, get_floors_pics, floors, process_pdf
+from parser.parse_pdf import find_info, check_pdf_to_be_valid_doc, get_floors_pics, floors, process_pdf
 
 token = os.environ.get("TOKEN")
 

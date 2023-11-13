@@ -8,7 +8,7 @@ from itertools import groupby, count
 from zipfile import ZipFile
 from collections import OrderedDict
 
-import openpyxl
+from openpyxl import Workbook
 
 
 def check_pdf_to_be_valid_doc(filename):
@@ -60,7 +60,7 @@ def process_pdf(src):
                         seventh_div.extend(tables[3])
                     else:
                         seventh_div.extend(tables[3])
-        wb = openpyxl.Workbook()
+        wb = Workbook()
         ws = wb.active
         wb.remove(ws)
         ws1 = wb.create_sheet('Раздел 1')
