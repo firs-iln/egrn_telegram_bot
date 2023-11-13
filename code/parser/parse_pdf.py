@@ -8,6 +8,8 @@ from itertools import groupby, count
 from zipfile import ZipFile
 from collections import OrderedDict
 
+import openpyxl
+
 
 def check_pdf_to_be_valid_doc(filename):
     with pdfopen(filename) as pdffile:
@@ -27,6 +29,52 @@ def cad_id(pages: list[Page]) -> tuple[str, str]:
     tables = pages[0].extract_tables()
     cad_id = tables[2][1][1]
     return _name, cad_id.replace(':', '')
+
+
+def resize_columns(ws) -> None:
+    for col in ws.columns:
+        set_len = 0
+        column = col[0].column_letter
+        for cell in col:
+            if len(str(cell.value)) > set_len:
+                set_len = len(str(cell.value))
+        set_col_width = set_len + 5
+        ws.column_dimensions[column].width = set_col_width
+
+
+def process_pdf(src):
+    addr, cad = find_info(src).values()
+    with pdfopen(src) as pdffile:
+        pages = pdffile.pages
+        first_div, seventh_div = [], []
+        for page in pages:
+            tables = page.extract_tables()
+            if tables:
+                div_id = tables[1][0][0].split()[-1]
+                if div_id == '1':
+                    if not first_div:
+                        first_div.extend(tables[2])
+                    first_div.extend(tables[3])
+                if div_id == '7':
+                    if not seventh_div:
+                        seventh_div.extend(tables[3])
+                    else:
+                        seventh_div.extend(tables[3])
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        wb.remove(ws)
+        ws1 = wb.create_sheet('Раздел 1')
+        ws7 = wb.create_sheet('Раздел 7')
+        for row in first_div:
+            ws1.append([row[0], row[1]])
+        for row in seventh_div:
+            ws7.append([x for x in row if x])
+        resize_columns(ws1)
+        resize_columns(ws7)
+
+        res = f'files/xlsx/{cad}_{addr}.xlsx'
+        wb.save(res)
+        return res
 
 
 DEFAULT_CHECKS = [address, cad_id]

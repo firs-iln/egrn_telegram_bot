@@ -15,4 +15,5 @@ COPY /code  /code
 RUN mkdir "files" && \
     mkdir "files/images" && \
     mkdir "files/received" && \
-    mkdir "files/zips"
+    mkdir "files/zips" && \
+    mkdir "files/xlsx"

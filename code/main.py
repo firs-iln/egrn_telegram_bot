@@ -7,12 +7,13 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboard
 from telegram.ext import ContextTypes, ApplicationBuilder, CommandHandler, MessageHandler, ConversationHandler, \
     CallbackQueryHandler
 from telegram.ext.filters import TEXT, Document, COMMAND
-from parser.parse_pdf import find_info, repr_info, check_pdf_to_be_valid_doc, get_floors_pics, floors
+from parser.parse_pdf import find_info, repr_info, check_pdf_to_be_valid_doc, get_floors_pics, floors, process_pdf
 
 token = os.environ.get("TOKEN")
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет, я бот, который поможет тебе с ЕГРН. ")
     egrn = KeyboardButton("ЕГРН")
 
     markup = ReplyKeyboardMarkup.from_button(egrn,
@@ -76,12 +77,13 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["src"] = src
 
-    data = find_info(src)  # processing pdf
-    reply = repr_info(data)  # making reply
+    doc = process_pdf(src)
+
+    cad = find_info(src)["Кадастровый номер"]
 
     floors_reply = floors(src)
 
-    floors_file = f'{data["Кадастровый номер"]}.txt'
+    floors_file = f'{cad}.txt'
     with open(floors_file, 'wt', encoding='utf-8') as f:
         f.write(floors_reply)
 
@@ -90,7 +92,7 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pics = InlineKeyboardButton(text="Планы", callback_data="Планы")
     markup = InlineKeyboardMarkup.from_button(pics)
 
-    await message_to_reply.reply_text(reply, quote=True)
+    await message_to_reply.reply_document(doc, quote=True)
 
     message = await context.bot.send_message(update.message.chat.id, floors_reply, reply_markup=markup)
 
@@ -131,7 +133,6 @@ async def floor_pics(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def delete_messages(context: ContextTypes.DEFAULT_TYPE):
     for message in context.user_data.get("messages_to_delete", []):
-        pprint.pprint(message)
         await message.delete()
     context.user_data["messages_to_delete"] = []
 
