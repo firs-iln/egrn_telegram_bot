@@ -2,11 +2,12 @@ import os
 import re
 import zipfile
 
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, \
+    ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ApplicationBuilder, CommandHandler, MessageHandler, ConversationHandler, \
     CallbackQueryHandler
 from telegram.ext.filters import TEXT, Document, COMMAND
-from parser.parse_pdf import find_info, check_pdf_to_be_valid_doc, get_floors_pics, floors, process_pdf
+from parser.parse_pdf import find_info, repr_info, check_pdf_to_be_valid_doc, get_floors_pics, floors, process_pdf
 
 token = os.environ.get("TOKEN")
 
@@ -77,11 +78,12 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     doc = process_pdf(src)
 
-    cad = find_info(src)["Кадастровый номер"]
+    data = find_info(src)
+    reply = repr_info(data)
 
     floors_reply = floors(src)
 
-    floors_file = f'{cad}.txt'
+    floors_file = f'{data["Кадастровый номер"]}.txt'
     with open(floors_file, 'wt', encoding='utf-8') as f:
         f.write(floors_reply)
 
@@ -90,7 +92,8 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pics = InlineKeyboardButton(text="Планы", callback_data="Планы")
     markup = InlineKeyboardMarkup.from_button(pics)
 
-    await message_to_reply.reply_document(doc, quote=True)
+    await message_to_reply.reply_text(reply, quote=True)
+    await context.bot.send_document(update.message.chat.id, doc)
 
     message = await context.bot.send_message(update.message.chat.id, floors_reply, reply_markup=markup)
 
