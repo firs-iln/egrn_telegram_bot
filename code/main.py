@@ -13,7 +13,6 @@ token = os.environ.get("TOKEN")
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет, я бот, который поможет тебе с ЕГРН. ")
     egrn = KeyboardButton("ЕГРН")
 
     markup = ReplyKeyboardMarkup.from_button(egrn,
