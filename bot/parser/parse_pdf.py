@@ -7,8 +7,7 @@ from pdfplumber import open as pdfopen
 from itertools import groupby, count
 from zipfile import ZipFile
 from collections import OrderedDict
-
-from openpyxl import Workbook
+import openpyxl
 
 
 def check_pdf_to_be_valid_doc(filename):
@@ -29,6 +28,14 @@ def cad_id(pages: list[Page]) -> tuple[str, str]:
     tables = pages[0].extract_tables()
     cad_id = tables[2][1][1]
     return _name, cad_id.replace(':', '')
+
+
+def cad_id_from_table(src):
+    with pdfopen(src) as pdffile:
+        pages = pdffile.pages
+        tables = pages[0].extract_tables()
+        cad_id = tables[2][1][1]
+        return cad_id
 
 
 def resize_columns(ws) -> None:
@@ -60,21 +67,25 @@ def process_pdf(src):
                         seventh_div.extend(tables[3])
                     else:
                         seventh_div.extend(tables[3])
-        wb = Workbook()
-        ws = wb.active
-        wb.remove(ws)
-        ws1 = wb.create_sheet('Раздел 1')
-        ws7 = wb.create_sheet('Раздел 7')
-        for row in first_div:
-            ws1.append([row[0], row[1]])
-        for row in seventh_div:
-            ws7.append([x for x in row if x])
-        resize_columns(ws1)
-        resize_columns(ws7)
 
-        res = f'files/xlsx/{cad}_{addr}.xlsx'
-        wb.save(res)
-        return res
+        return addr, cad, first_div, seventh_div
+
+
+def write_to_table(addr, cad, first_div, seventh_div):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    wb.remove(ws)
+    ws1 = wb.create_sheet('Раздел 1')
+    ws7 = wb.create_sheet('Раздел 7')
+    for row in first_div:
+        ws1.append([row[0], row[1]])
+    for row in seventh_div:
+        ws7.append([x for x in row if x])
+    resize_columns(ws1)
+    resize_columns(ws7)
+    res = f'files/xlsx/{cad}_{addr}.xlsx'
+    wb.save(res)
+    return res
 
 
 DEFAULT_CHECKS = [address, cad_id]

@@ -1,9 +1,10 @@
 /venv/
 .env
-/code/files/received/*
-/code/files/zips/*
-/code/files/images/*
-/code/parser/test/
+/bot/files/received/*
+/bot/files/zips/*
+/bot/files/images/*
+/bot/parser/test/
 __pycache__/
 .idea/
 .DS_Store
+/bot/temp.py
