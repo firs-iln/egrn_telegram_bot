@@ -159,7 +159,7 @@ def get_floors_pics(filename: str, pages: list[int], floors_filename: str | None
     print(filename, pages)
     with pdfopen(filename) as pdffile:
         cad = cad_id(pdffile.pages)
-        src = f'files/zips/{cad[1]} поэтажные планы.zip'
+        src = f'bot/files/zips/{cad[1]} поэтажные планы.zip'
         folder_name = re.split('[/.]', src)[2]
         with ZipFile(src, 'w') as zipObj:
             zipObj.mkdir(folder_name)

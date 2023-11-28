@@ -357,7 +357,7 @@ async def pics_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     text = update.callback_query.data
-    if text == "Планы":
+    if text == "plans":
         message = await context.bot.send_message(update.callback_query.message.chat.id,
                                                  "Введите номера листов для получения архива поэтажный планов: (через запятую или пробел)")
         context.user_data["messages_to_delete"].append(message)
