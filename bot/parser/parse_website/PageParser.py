@@ -54,7 +54,7 @@ class PageParser:
                                                    'rros-ui-lib-captcha-content-img')
         captcha_element.screenshot(f'bot/parser/parse_website/captchas/{cad_id} captcha.png')
 
-        captcha_text = solve_captcha(f'.bot/parser/parse_website/captchas/{cad_id} captcha.png')
+        captcha_text = solve_captcha(f'bot/parser/parse_website/captchas/{cad_id} captcha.png')
 
         captcha_field = "/html/body/div/div/div[1]/main/div/div[2]/div[4]/div[3]/div/div/label/div/div[1]/input"
         self.driver.find_element(By.XPATH, captcha_field).send_keys(captcha_text)
