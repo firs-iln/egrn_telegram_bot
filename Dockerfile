@@ -1,10 +1,7 @@
-FROM python:3.11
+FROM joyzoursky/python-chromedriver:3.9
 
-RUN apt-get update
-RUN apt-get install -y libglib2.0-0
-RUN apt-get install -y libnss3
-RUN apt-get install -y libgconf-2-4
-RUN apt-get install -y libfontconfig1
+# set display port to avoid crash
+ENV DISPLAY=:99
 
 ENV PYTHONUNBUFFERED=1
 

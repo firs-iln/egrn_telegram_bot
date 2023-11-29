@@ -2,7 +2,10 @@ version: "1.0"
 
 services:
   egrn_bot:
+
     build:
+      platforms:
+        - "linux/amd64"
       context: .
       dockerfile: Dockerfile
     container_name: egrn_bot
