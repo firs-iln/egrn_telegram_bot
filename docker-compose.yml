@@ -2,6 +2,7 @@ version: "1.0"
 
 services:
   egrn_bot:
+    platform: linux/x86_64
     build:
       context: .
       dockerfile: Dockerfile

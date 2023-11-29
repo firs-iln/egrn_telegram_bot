@@ -14,6 +14,8 @@ from bot.parser.tables.temp_writer import write_to_table, write_first_and_sevent
 from bot.parser.tables.parse_xlsx import get_addr_and_cad_id, make_register_file, check_for_spaces_in_column, \
     join_owners_and_registry
 
+from bot.parser.parse_website.util import Parser
+
 from bot.states import MainDialogStates
 
 token = os.environ.get("TOKEN")
@@ -87,6 +89,8 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     doc = write_first_and_seventh(*[*process_pdf(src), src])
     cad = find_info(src)["Кадастровый номер"]
 
+    context.user_data["fs_doc"] = doc
+
     floors_reply = floors(src)
 
     floors_file = f'bot/files/{cad}.txt'
@@ -110,40 +114,26 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def online_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("online chose awaited")
     await update.callback_query.answer()
 
     text = update.callback_query.data
     if text == "online":
-        message = await context.bot.send_message(update.callback_query.message.chat.id,
-                                                 "Вставьте файл с карточками")
-        context.user_data["messages_to_delete"].append(message)
-        return MainDialogStates.ONLINE_WAIT
+        src = context.user_data["fs_doc"]
+        parser_obj = Parser(src)
+        parser_obj.process_objects()
 
+        cad_id, addr = get_addr_and_cad_id(src)
 
-async def online_parse(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    file = await context.bot.get_file(update.message.document)
+        reply = f'''МКД: {addr}\nКадастровый номер: {cad_id}\n\nСоздать файл РеестрМКД?'''
 
-    received_files_path = 'bot/files/received/'
+        button = InlineKeyboardButton(text="РеестрМКД", callback_data="makefile")
 
-    message_to_reply = update.message
+        markup = InlineKeyboardMarkup.from_button(button)
 
-    document_name = update.message.document.file_name
-    src = received_files_path + document_name
-    await file.download_to_drive(src)
+        await update.message.reply_text(text=reply, quote=True, reply_markup=markup)
 
-    context.user_data["fs_with_cards"] = src
-
-    cad_id, addr = get_addr_and_cad_id(src)
-
-    reply = f'''МКД: {addr}\nКадастровый номер: {cad_id}\n\nСоздать файл РеестрМКД?'''
-
-    button = InlineKeyboardButton(text="РеестрМКД", callback_data="makefile")
-
-    markup = InlineKeyboardMarkup.from_button(button)
-
-    await update.message.reply_text(text=reply, quote=True, reply_markup=markup)
-
-    return MainDialogStates.ONLINE_CONFIRM
+        return MainDialogStates.ONLINE_CONFIRM
 
 
 async def online_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -409,7 +399,6 @@ if __name__ == '__main__':
                 CallbackQueryHandler(callback=online_chose, pattern="online"),
             ],
             MainDialogStates.FLOORS_PICS: [MessageHandler(filters=TEXT & ~COMMAND, callback=floor_pics)],
-            MainDialogStates.ONLINE_WAIT: [MessageHandler(filters=Document.ALL, callback=online_parse)],
             MainDialogStates.ONLINE_CONFIRM: [CallbackQueryHandler(callback=online_confirm, pattern="makefile")],
             MainDialogStates.CHOOSE_OPTION_REGISTRY: [
                 CallbackQueryHandler(callback=choose_option_registry, pattern="extract"),
