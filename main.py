@@ -129,7 +129,7 @@ async def online_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         markup = InlineKeyboardMarkup.from_button(button)
 
-        await update.message.reply_text(text=reply, quote=True, reply_markup=markup)
+        await update.effective_message.reply_text(text=reply, reply_markup=markup)
 
         return MainDialogStates.ONLINE_CONFIRM
 
