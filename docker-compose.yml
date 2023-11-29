@@ -10,3 +10,5 @@ services:
     command: sh -c "python main.py"
     env_file:
       - .env
+    stdin_open: true
+    tty: true

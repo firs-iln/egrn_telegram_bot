@@ -120,8 +120,6 @@ async def online_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.callback_query.data
     if text == "online":
         src = context.user_data["fs_doc"]
-        parser_obj = Parser(src)
-        parser_obj.process_objects()
 
         cad_id, addr = get_addr_and_cad_id(src)
 
@@ -145,7 +143,9 @@ async def online_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                  "Обрабатываю файл, ожидайте...")
         context.user_data["messages_to_delete"].append(message)
 
-        src = context.user_data["fs_with_cards"]
+        src = context.user_data["fs_doc"]
+        parser_obj = Parser(src)
+        parser_obj.process_objects()
 
         doc, area = make_register_file(src)
 
