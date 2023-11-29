@@ -20,4 +20,5 @@ RUN cd "bot" && \
     mkdir "files/images" && \
     mkdir "files/received" && \
     mkdir "files/zips" && \
-    mkdir "files/xlsx"
+    mkdir "files/xlsx" && \
+    mkdir "parser/parse_website/captchas"
