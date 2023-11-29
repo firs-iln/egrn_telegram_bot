@@ -100,6 +100,11 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["src"] = src
 
+    tmp_msg = await update.effective_message.reply_text(
+        "Обработка начата, ожидайте..."
+    )
+    context.user_data["messages_to_delete"].extend([tmp_msg])
+
     doc = write_first_and_seventh(*[*process_pdf(src), src])
     cad = find_info(src)["Кадастровый номер"]
 
