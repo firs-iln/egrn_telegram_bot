@@ -18,6 +18,20 @@ from bot.parser.parse_website.util import Parser
 
 from bot.states import MainDialogStates
 
+import logging
+from logging.handlers import RotatingFileHandler
+
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO,
+    handlers=[
+        RotatingFileHandler("logs/bot.log", maxBytes=200000, backupCount=5),
+        logging.StreamHandler(),
+    ]
+)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
 token = os.environ.get("TOKEN")
 order_id = 0
 
