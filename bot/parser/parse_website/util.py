@@ -2,7 +2,9 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Alignment
 
-from selenium.common.exceptions import WebDriverException, TimeoutException
+from selenium.common.exceptions import TimeoutException
+
+from concurrent.futures import ThreadPoolExecutor
 
 from .parse_web import parse_land, parse_building, parse_room
 
@@ -25,6 +27,9 @@ class CadObject:
             return False
         return self.cad_id == other
 
+    def __hash__(self):
+        return hash(self.cad_id)
+
 
 class Room(CadObject):
     pass
@@ -39,7 +44,7 @@ class Building(CadObject):
         self.rooms = []
 
     def find_room(self, cad_id: str):
-        return self.rooms[self.rooms.index(cad_id)]
+        return filter(lambda room: room.cad_id == cad_id, self.rooms).__next__()
 
     def set_room_card(self, room_id: str, card: dict):
         try:
@@ -103,19 +108,14 @@ class Parser:
         if building:
             self.land.building.set_card(building)
 
-        for i, room in enumerate(self.land.building.rooms):
-            not_got = True
-            while not_got:
-                try:
-                    roomreses: dict = parse_room(room.cad_id)
-                    if all(roomreses.values()):
-                        not_got = False
-                except WebDriverException:
-                    pass
-            print(room.cad_id, roomreses)
-            for room_id, room_card in roomreses.items():
-                print(room_id, room_card)
-                self.land.building.set_room_card(room_id, room_card)
+        with ThreadPoolExecutor(1) as executor:
+            print(executor._max_workers)
+            results = list(executor.map(parse_room, (x.cad_id for x in self.land.building.rooms)))
+
+        for result in results:
+            print(result)
+            if result[1]:
+                self.land.building.set_room_card(result[0], result[1])
 
     def write_objects(self):
 

@@ -91,7 +91,6 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         await update.message.delete()
                         break
 
-    print(src)
     if not check_pdf_to_be_valid_doc(src):  # file contains some title
         message = await update.message.reply_text("Неверный формат файла, попробуйте ещё раз")
         context.user_data["messages_to_delete"].extend([message, update.message])
@@ -262,7 +261,6 @@ async def asked_owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.callback_query.data
     if text in letters_keyboard:
         columns = context.user_data["columns"]
-        print(columns)
         buttons = [InlineKeyboardButton(text=x, callback_data=x)
                    for x in letters_keyboard
                    if x not in columns.values()]

@@ -9,21 +9,23 @@ from typing import  Callable
 
 from anticaptchaofficial.imagecaptcha import *
 
+from functools import cache
+
 from .anticaptcha import solve_captcha
 
 URL = "https://lk.rosreestr.ru/eservices/real-estate-objects-online"
 
 
-def cache(func: Callable, reses: dict = {}):
-    def wrapper(*args, **kwargs):
-        if args[1] in reses:
-            print("cached")
-            return reses[args[1]]
-        res = func(*args, **kwargs)
-        reses[args[1]] = res
-        return res
-
-    return wrapper
+# def cache(func: Callable, reses: dict = {}):
+#     def wrapper(*args, **kwargs):
+#         if args[1] in reses:
+#             print("cached")
+#             return reses[args[1]]
+#         res = func(*args, **kwargs)
+#         reses[args[1]] = res
+#         return res
+#
+#     return wrapper
 
 
 class PageParser:
@@ -63,9 +65,7 @@ class PageParser:
                                                                                                      "button")
         self.wait.until(EC.element_to_be_clickable(button)).click()
 
-        time.sleep(5)
-
-        xpath = '/html/body/div[1]/div/div[1]/main/div/div[2]/div[6]/div/div[1]/div/div[2]/div/div[1]/div/a'
+        # xpath = '/html/body/div[1]/div/div[1]/main/div/div[2]/div[6]/div/div[1]/div/div[2]/div/div[1]/div/a'
         self.driver.implicitly_wait(10)
 
         # self.wait.until(EC.presence_of_element_located((By.XPATH, xpath)))

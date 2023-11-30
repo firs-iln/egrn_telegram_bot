@@ -15,6 +15,7 @@ def solve_captcha(captcha_src: str) -> str:
     solver.set_soft_id(0)
 
     balance = solver.get_balance()
+    print(balance)
     if balance <= 0:
         balance = solver.get_balance()
         if balance <= 0:

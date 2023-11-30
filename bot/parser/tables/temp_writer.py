@@ -232,6 +232,6 @@ def write_rooms(src, rooms):  # deprecated
 
 if __name__ == '__main__':
     wb: Workbook = load_workbook(
-        '/bot/files/xlsx/664102060302313_Свердловская область, г. Екатеринбург, ул. Свердлова, д. 27.xlsx')
+        '/bot/files/xlsx/ 664102060302313_Свердловская область, г. Екатеринбург, ул. Свердлова, д. 27.xlsx')
     ws: Worksheet = wb["Помещения"]
     unpack_card(ws["G3"].value)

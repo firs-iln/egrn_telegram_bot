@@ -200,7 +200,14 @@ def make_register_file(src, order_id: int = 10002):
 
     base_style = ws_rooms["B2"]._style
 
-    sort_rows(ws_rooms)
+    wb.save(res)
+
+    # print(ws_rooms["C2"].value)
+    # print(ws_rooms.cell(row=2, column=3).value)
+    # print(ws_rooms["C3"].value)
+    # print(ws_rooms["C4"].value)
+
+    sort_rows(ws_rooms, start=3)
 
     wb.save(res)
 
@@ -222,11 +229,21 @@ def make_register_file(src, order_id: int = 10002):
     return res, total_area
 
 
-def sort_rows(ws: Worksheet) -> None:
-    rows = list(ws.iter_rows(min_row=4))
-    ws.delete_rows(4, len(rows))
+def sort_rows(ws: Worksheet, start: int = 1) -> None:
+    rows = list(ws.iter_rows(min_row=start + 1))
+
+    # print(rows[])
+
+    # print(ws.cell(row=start, column=3).value)
+    # print(ws.cell(row=start + 1, column=3).value)
+
+    # print(ws["C2"].value)
+    # print(ws["C3"].value)
+    # print(ws["C4"].value)
+    # print(*map(lambda x: x.value, rows[0]))
+    ws.delete_rows(start + 1, len(rows))
     rows.sort(key=lambda x: (x[0].value, float(x[2].value) if x[2].value.strip().isdigit() else float('inf')))
-    for i, row in enumerate(rows, start=4):
+    for i, row in enumerate(rows, start=start + 1):
         for cell in row:
             ws.cell(row=i, column=cell.col_idx).value = cell.value
 
@@ -263,7 +280,6 @@ def make_registry_sheet(wb: Workbook, src: str, ws_rooms: Worksheet, ws_registry
             # print(cad_id)
             # print(prop)
             if 'долевая' in prop:
-                print(1234, row_id)
                 prop = prop.split('Общая долевая собственность')
                 regs = list(map(lambda x: ["Общая долевая собственность", *x.split("от")], prop[1:]))
                 value = ', '.join([' от '.join((x[1].strip(), x[2].strip())) for x in regs])

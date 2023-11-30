@@ -8,4 +8,3 @@ __pycache__/
 .idea/
 .DS_Store
 /bot/temp.py
-bot/parser/parse_website/captchas/*
