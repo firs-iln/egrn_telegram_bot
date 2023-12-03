@@ -9,7 +9,7 @@ class PrevNum(BaseModel):
 
 class Right(BaseModel):
     right: str
-    restriction: str
+    restriction: Optional[str] = ''
 
 
 class RnbRight(BaseModel):
