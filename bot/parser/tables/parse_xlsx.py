@@ -310,7 +310,7 @@ def make_registry_sheet(wb: Workbook, src: str, ws_rooms: Worksheet, ws_registry
 
 def parse_owners_by_cad_id(src: str, column_map: dict):
     wb: Workbook = load_workbook(src)
-    print(src, wb.sheetnames)
+    # print(src, wb.sheetnames)
     ws = wb['Реестр']
 
     A = ord('A')
@@ -321,7 +321,7 @@ def parse_owners_by_cad_id(src: str, column_map: dict):
     registred_columns = list(map(lambda x: ord(x) - A, column_map['registred'].split(',')))
     # print(list(registred_columns), column_map['registred'])
     part_columns = list(map(lambda x: ord(x) - A, column_map['part'].split(',')))
-    print(part_columns)
+    # print(part_columns)
 
 
     owners_by_cad_id = defaultdict(list)
@@ -348,7 +348,7 @@ def parse_owners_by_cad_id(src: str, column_map: dict):
 
         if len(part_columns) == 1:
             value = row[part_columns[0]].value
-            print(value)
+            # print(value)
             part = value if value != '1' else '1/1'
         else:
             value = ''
@@ -362,7 +362,7 @@ def parse_owners_by_cad_id(src: str, column_map: dict):
         else:
             owners_by_cad_id[cad_id].append([owner, registred, part])
 
-    print(*owners_by_cad_id.items(), sep='\n')
+    # print(*owners_by_cad_id.items(), sep='\n')
     return owners_by_cad_id
 
 
@@ -383,14 +383,14 @@ def join_owners_and_registry(registry_src: str,
     for i, row in enumerate(ws.iter_rows(min_row=2), start=2):
         cad_id = row[1].value.strip()
         status = row[0].value
-        print(1111, cad_id, cad_id in owners_by_cad_id)
+        # print(1111, cad_id, cad_id in owners_by_cad_id)
         owners = owners_by_cad_id[cad_id]
-        print(2222, owners)
+        # print(2222, owners)
         if status in ('НЖ', 'ОИ'):
             continue
         if len(owners) == 1:
-            print()
-            print('one owner', owners)
+            # print()
+            # print('one owner', owners)
             owner, registred, part = owners[0]
             owner = owner.strip()
             registred = registred.strip()
@@ -400,11 +400,11 @@ def join_owners_and_registry(registry_src: str,
             # has_date = re.match('\d{2}\.\d{2}\.\d{4}', table_date)
             # if not has_date:
             #     continue
-            print("yoy?", registred)
+            # print("yoy?", registred)
             owner = owner.split(' ')
-            print(registred, table_date)
+            # print(registred, table_date)
             if table_date == registred[-1]:
-                print(i, owner, 'yes!!!!!!!!!!!!')
+                # print(i, owner, 'yes!!!!!!!!!!!!')
                 ws.cell(row=i, column=7).value = owner[0]
                 ws.cell(row=i, column=8).value = owner[1]
                 ws.cell(row=i, column=9).value = ' '.join(owner[2:])
@@ -419,22 +419,22 @@ def join_owners_and_registry(registry_src: str,
                 rows_to_insert.append(new_row)
         else:
             for owner, registred, part in owners:
-                print("yoy", registred, owner)
+                # print("yoy", registred, owner)
                 owner = owner.strip()
                 registred = registred.strip()
                 registred = re.split(' от | №', registred)
-                print(registred)
+                # print(registred)
                 owner = owner.split()
                 new_row = [*[x.value for x in row]]
                 part = part.split('/')
                 new_row[4] = part[0]
                 new_row[5] = part[1]
                 ratio = int(part[0]) / int(part[1])
-                print("ratio", ratio)
+                # print("ratio", ratio)
                 new_row[16] = str(round(float(row[16].value.replace(",", ".")) * ratio, 3)).replace('.', ',')
-                print(new_row[16])
+                # print(new_row[16])
                 new_row[17] = str(round(float(row[17].value) * ratio, 3)).replace('.', ',')
-                print(new_row[17])
+                # print(new_row[17])
                 new_row[6] = owner[0]
                 new_row[7] = owner[1]
                 new_row[8] = ' '.join(owner[2:])
@@ -448,24 +448,25 @@ def join_owners_and_registry(registry_src: str,
     rows_to_delete = []
     for i, row in enumerate(ws.iter_rows(min_row=2), start=2):
         if i == 9:
-            print(i, row[6].value.strip())
+            # print(i, row[6].value.strip())
+            pass
         if row[6].value.strip() == 'нет данных':
-            print(i, row[6].value)
-            print(*map(lambda x: x.value, row))
+            # print(i, row[6].value)
+            # print(*map(lambda x: x.value, row))
             rows_to_delete.append(i - 1)
 
     new_rows = []
     for i, row in enumerate(ws.iter_rows(min_row=2), start=2):
         if row[6].value.strip() != 'нет данных' or row[0].value.strip() != 'КВ':
-            print('save', i)
+            # print('save', i)
             new_rows.append([x.value for x in row])
         else:
-            print(i, row[6].value.strip())
-
+            # print(i, row[6].value.strip())
+            pass
     ws.delete_rows(2, amount=ws.max_row - 1)
 
     for row in new_rows:
-        print(row)
+        # print(row)
         ws.append(row)
 
     for row in rows_to_insert:

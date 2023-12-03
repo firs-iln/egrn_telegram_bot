@@ -80,7 +80,7 @@ class PageParser:
             .find_element(By.TAG_NAME, "a").click()
 
         data = self.parse_data()
-        # self.driver.quit()
+        self.driver.quit()
         return data
 
     def parse_data(self):

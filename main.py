@@ -240,6 +240,27 @@ async def got_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return MainDialogStates.ASKED_CAD
 
 
+async def test_fio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Вставьте пустой РеестрМКД в формате .xlsx")
+    context.user_data["messages_to_delete"] = []
+    return MainDialogStates.FIO_TEST_ASKED_REGISTRY
+
+
+async def test_fio_got_registry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("test fio got registry")
+    file = await context.bot.get_file(update.message.document)
+
+    received_files_path = 'bot/files/received/'
+
+    document_name = update.message.document.file_name
+    src = received_files_path + document_name
+    await file.download_to_drive(src)
+
+    context.user_data["res_file"] = src
+    await update.effective_message.reply_text("Вставьте файл с ФИО в формате .xlsx")
+    return MainDialogStates.ASKED_TABLE
+
+
 async def asked_cad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
@@ -425,9 +446,11 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(token).build()
 
     app.add_handler(CommandHandler('start', start))
+    # app.add_handler(CommandHandler('testfio', test_fio))
 
     conversation_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters=TEXT & ~COMMAND, callback=egrn_chose)],
+        entry_points=[MessageHandler(filters=TEXT & ~COMMAND, callback=egrn_chose),
+                                       CommandHandler('testfio', test_fio)],
         states={
             MainDialogStates.GET_DOC: [MessageHandler(filters=Document.ALL, callback=get_doc)],
             MainDialogStates.CHOOSE_OPTION: [
@@ -441,6 +464,7 @@ if __name__ == '__main__':
                 CallbackQueryHandler(callback=choose_option_registry, pattern="no"),
                 CallbackQueryHandler(callback=choose_option_registry, pattern="table"),
             ],
+            MainDialogStates.FIO_TEST_ASKED_REGISTRY: [MessageHandler(filters=Document.ALL, callback=test_fio_got_registry)],
             MainDialogStates.ASKED_TABLE: [MessageHandler(filters=Document.ALL, callback=got_table)],
             MainDialogStates.ASKED_CAD: [CallbackQueryHandler(callback=asked_cad, pattern='^')],
             MainDialogStates.ASKED_NAMES: [CallbackQueryHandler(callback=asked_owners, pattern='^')],
