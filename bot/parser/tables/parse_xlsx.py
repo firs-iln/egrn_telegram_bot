@@ -242,7 +242,7 @@ def sort_rows(ws: Worksheet, start: int = 1) -> None:
     # print(ws["C4"].value)
     # print(*map(lambda x: x.value, rows[0]))
     ws.delete_rows(start + 1, len(rows))
-    rows.sort(key=lambda x: (x[0].value, float(x[2].value) if x[2].value.strip().isdigit() else float('inf')))
+    rows.sort(key=lambda x: (x[0].value, float(x[2].value) if x[2].value and x[2].value.strip().isdigit() else float('inf')))
     for i, row in enumerate(rows, start=start + 1):
         for cell in row:
             ws.cell(row=i, column=cell.col_idx).value = cell.value

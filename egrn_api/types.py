@@ -15,7 +15,7 @@ class Right(BaseModel):
 class RnbRight(BaseModel):
     right_origin: str
     right_reg_number: str
-    right_reg_date: str
+    right_reg_date: Optional[str] = ''
     right_description: str
 
 
@@ -38,9 +38,9 @@ class SearchResponseItem(BaseModel):
     reg_date: str
     area: str
     unit: str
-    cad_cost: str
-    cost_insertion_date: str
-    cost_definition_date: str
+    cad_cost: Optional[str] = ''
+    cost_insertion_date: Optional[str] = ''
+    cost_definition_date: Optional[str] = ''
     oks_type: Optional[str] = ''
     oks_type_more: Optional[str] = ''
     oks_purpose: Optional[str] = ''

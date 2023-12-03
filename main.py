@@ -27,7 +27,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     handlers=[
-        RotatingFileHandler("logs/bot.log", maxBytes=200000, backupCount=5),
+        RotatingFileHandler("logs/bot.log", maxBytes=20000, backupCount=5),
         logging.StreamHandler(),
     ]
 )
@@ -39,7 +39,8 @@ order_id = 0
 main_keyboard = ReplyKeyboardMarkup.from_button(
     KeyboardButton("ЕГРН"),
     input_field_placeholder='Выберите действие:',
-    resize_keyboard=True
+    resize_keyboard=True,
+    one_time_keyboard=True,
 )
 
 
