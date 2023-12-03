@@ -33,21 +33,20 @@ logging.basicConfig(
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-
 token = os.environ.get("TOKEN")
 order_id = 0
 
+main_keyboard = ReplyKeyboardMarkup.from_button(
+    KeyboardButton("ЕГРН"),
+    input_field_placeholder='Выберите действие:',
+    resize_keyboard=True
+)
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    egrn = KeyboardButton("ЕГРН")
-
-    markup = ReplyKeyboardMarkup.from_button(egrn,
-                                             input_field_placeholder='Выберите действие:',
-                                             resize_keyboard=True)
-
     message = await context.bot.send_message(chat_id=update.effective_chat.id,
                                              text="Выберите действие из меню",
-                                             reply_markup=markup)
+                                             reply_markup=main_keyboard)
     context.user_data['messages_to_delete'] = []
     context.user_data["messages_to_delete"].extend([message, update.message])
 
@@ -362,9 +361,10 @@ async def asked_parts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         regisrtry_file = join_owners_and_registry(regisrtry_file, owners_file, columns)
 
-        await context.bot.send_document(update.callback_query.message.chat.id, regisrtry_file)
+        await context.bot.send_document(update.callback_query.message.chat.id, regisrtry_file,
+                                        reply_markup=main_keyboard)
         await delete_messages(context)
-        return MainDialogStates.WAIT
+        return ConversationHandler.END
 
 
 async def pics_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
