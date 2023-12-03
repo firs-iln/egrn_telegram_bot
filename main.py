@@ -410,6 +410,12 @@ async def delete_messages(context: ContextTypes.DEFAULT_TYPE):
     context.user_data["messages_to_delete"] = []
 
 
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await delete_messages(context)
+    await delete_message_or_skip(update.message)
+    return ConversationHandler.END
+
+
 if __name__ == '__main__':
     # persistence_input = PersistenceInput(bot_data=True, user_data=True, chat_data=True)
     # persistence = PicklePersistence('bot/bot_data.pickle', store_data=persistence_input, update_interval=1)
@@ -441,7 +447,7 @@ if __name__ == '__main__':
             MainDialogStates.ASKED_EXTRACT: [CallbackQueryHandler(callback=asked_extract, pattern='^')],
             MainDialogStates.ASKED_PARTS: [CallbackQueryHandler(callback=asked_parts, pattern='^')],
         },
-        fallbacks=[CommandHandler('start', start)],
+        fallbacks=[CommandHandler('cancel', cancel)],
         # persistent=True,
         # name="main_dialog",
     )
