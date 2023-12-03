@@ -50,7 +50,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                              reply_markup=markup)
     context.user_data['messages_to_delete'] = []
     context.user_data["messages_to_delete"].extend([message, update.message])
-    return MainDialogStates.EGRN_CHOSE
 
 
 async def egrn_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -418,10 +417,11 @@ if __name__ == '__main__':
 
     app = ApplicationBuilder().token(token).build()
 
+    app.add_handler(CommandHandler('start', start))
+
     conversation_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[MessageHandler(filters=TEXT & ~COMMAND, callback=egrn_chose)],
         states={
-            MainDialogStates.EGRN_CHOSE: [MessageHandler(filters=TEXT & ~COMMAND, callback=egrn_chose)],
             MainDialogStates.GET_DOC: [MessageHandler(filters=Document.ALL, callback=get_doc)],
             MainDialogStates.CHOOSE_OPTION: [
                 CallbackQueryHandler(callback=pics_chose, pattern="plans"),

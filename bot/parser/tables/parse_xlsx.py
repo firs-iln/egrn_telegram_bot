@@ -277,21 +277,15 @@ def make_registry_sheet(wb: Workbook, src: str, ws_rooms: Worksheet, ws_registry
                                  'Ограничение прав и обременение объекта недвижимости',
                                  # mod=1
                                  )
-            # print(cad_id)
-            print(prop)
             if 'долевая' in prop:
                 prop = prop.split('\n')
-                print(prop)
                 prop = list(map(lambda x: x.replace('(Общая долевая собственность)', '').strip(), prop))
                 regs = list(map(lambda x: ["Общая долевая собственность", *x.split("от")], prop))
-                print(regs)
                 value = ', '.join([' от '.join((x[1].strip(), x[2].strip())) for x in regs])
                 ws_registry.cell(row=row_id, column=13).value = regs[0][0]
                 ws_registry.cell(row=row_id, column=14).value = f'Долевая собственность {value}'
             elif 'Собственность' in prop:
-                print(prop)
                 regs = ['Собственность', *prop.replace('(Cобственность)', '').strip().split('от')]
-                print(regs)
                 # print(regs)
                 ws_registry.cell(row=row_id, column=13).value = regs[0]
                 ws_registry.cell(row=row_id, column=14).value = regs[1].replace('№', '').strip()
