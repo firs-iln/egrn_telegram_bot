@@ -203,8 +203,8 @@ async def choose_option_registry(update: Update, context: ContextTypes.DEFAULT_T
         doc = context.user_data["res_file"]
 
         await delete_messages(context)
-        await update.effective_message.reply_document(doc)
-        return MainDialogStates.WAIT
+        await update.effective_message.reply_document(doc, reply_markup=main_keyboard)
+        return ConversationHandler.END
     if text == "extract":
         message = await update.effective_message.reply_text("Функционал в разработке")
         context.user_data["messages_to_delete"].extend([update.message, message])
