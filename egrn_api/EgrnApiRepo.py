@@ -1,3 +1,4 @@
+import pprint
 from typing import Optional
 import httpx
 
@@ -20,7 +21,7 @@ class EGRNAPI:
             return response.json()
 
     async def _get(self, url: str, params: dict) -> dict:
-        async with httpx.Client() as client:
+        async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url + url, params=params,
                                         headers=self.headers)
             return response.json()

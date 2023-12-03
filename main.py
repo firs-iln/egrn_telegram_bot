@@ -5,7 +5,7 @@ import zipfile
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, \
     ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ApplicationBuilder, CommandHandler, MessageHandler, ConversationHandler, \
-    CallbackQueryHandler
+    CallbackQueryHandler, PersistenceInput, PicklePersistence
 from telegram.ext.filters import TEXT, Document, COMMAND
 
 from bot.parser.parse_pdf import find_info, check_pdf_to_be_valid_doc, get_floors_pics, floors, process_pdf, \
@@ -17,6 +17,8 @@ from bot.parser.tables.parse_xlsx import get_addr_and_cad_id, make_register_file
 from bot.parser.parse_website.util import Parser
 
 from bot.states import MainDialogStates
+
+from egrn_api.EgrnApiRepo import EGRNAPI
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -162,8 +164,14 @@ async def online_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["messages_to_delete"].append(message)
 
         src = context.user_data["fs_doc"]
-        parser_obj = Parser(src)
-        parser_obj.process_objects()
+        try:
+            parser_obj = Parser(src)
+            await parser_obj.process_objects()
+        except Exception as e:
+            message = await update.effective_message.reply_text(text="Ошибка при обработке файла")
+            context.user_data["messages_to_delete"].append(message)
+            parser_obj = Parser(src)
+            await parser_obj.process_objects()
 
         doc, area = make_register_file(src)
 
@@ -404,6 +412,10 @@ async def delete_messages(context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == '__main__':
+    # persistence_input = PersistenceInput(bot_data=True, user_data=True, chat_data=True)
+    # persistence = PicklePersistence('bot/bot_data.pickle', store_data=persistence_input, update_interval=1)
+    # app = ApplicationBuilder().token(token).persistence(persistence).build()
+
     app = ApplicationBuilder().token(token).build()
 
     conversation_handler = ConversationHandler(
@@ -429,7 +441,9 @@ if __name__ == '__main__':
             MainDialogStates.ASKED_EXTRACT: [CallbackQueryHandler(callback=asked_extract, pattern='^')],
             MainDialogStates.ASKED_PARTS: [CallbackQueryHandler(callback=asked_parts, pattern='^')],
         },
-        fallbacks=[CommandHandler('start', start)]
+        fallbacks=[CommandHandler('start', start)],
+        # persistent=True,
+        # name="main_dialog",
     )
 
     app.add_handler(conversation_handler)

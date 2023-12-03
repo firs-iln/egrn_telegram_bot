@@ -1,8 +1,13 @@
 version: "1.0"
 
 services:
+#  egrn_selenium_driver:
+#    image: selenium/standalone-chrome:3.141.59-20210607
+#    ports:
+#      - "4444:4444"
+##    --disable-dev-shm-usage
+#    restart: always
   egrn_bot:
-
     build:
       platforms:
         - "linux/amd64"
@@ -15,3 +20,6 @@ services:
       - .env
     volumes:
       - ./logs:/bot/logs
+      - ./bot/bot_data.pickle:/bot/bot/bot_data.pickle
+#    depends_on:
+#      - egrn_selenium_driver

@@ -1,3 +1,5 @@
+import pprint
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -39,18 +41,21 @@ class PageParser:
         chrome_options.add_argument('--ignore-certificate-errors')
         chrome_options.add_argument('--disable-extensions')
         chrome_options.add_argument('--disable-gpu')
-        self.driver = webdriver.Chrome(options=chrome_options)
-        # self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+        self.driver = webdriver.Remote(command_executor="http://egrn_selenium_driver:4444/wd/hub",
+                                       options=chrome_options)
         self.wait = WebDriverWait(self.driver, 10)
+        self.driver.get(URL)
 
     @cache
     def parse(self, cad_id: str):
-        self.driver.get(URL)
+
         time.sleep(2)
 
         xpath = "/html/body/div/div/div[1]/main/div/div[2]/div[4]/div[4]/label/div/div[1]/input"
         self.wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
-        self.driver.find_element(By.XPATH, xpath).send_keys(cad_id)
+        cad_field = self.driver.find_element(By.XPATH, xpath)
+        cad_field.clear()
+        cad_field.send_keys(cad_id)
 
         captcha_element = self.driver.find_element(By.CLASS_NAME,
                                                    'rros-ui-lib-captcha-content-img')
@@ -66,7 +71,7 @@ class PageParser:
         self.wait.until(EC.element_to_be_clickable(button)).click()
 
         # xpath = '/html/body/div[1]/div/div[1]/main/div/div[2]/div[6]/div/div[1]/div/div[2]/div/div[1]/div/a'
-        self.driver.implicitly_wait(10)
+        self.driver.implicitly_wait(3)
 
         # self.wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
 
@@ -75,8 +80,7 @@ class PageParser:
             .find_element(By.TAG_NAME, "a").click()
 
         data = self.parse_data()
-        self.driver.quit()
-        self.__init__()
+        # self.driver.quit()
         return data
 
     def parse_data(self):
@@ -94,5 +98,5 @@ class PageParser:
                                                     "build-card-wrapper__info__ul__subinfo__options__item__line")
                 value = "\n".join([option.text for option in options])
                 data[div_name][key] = value
-
+        pprint.pprint(data)
         return data

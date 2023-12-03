@@ -11,8 +11,8 @@ def parse_building(cad_id: str):
 
 def parse_land(cad_id: str):
     page_parser = PageParser()
-    building = page_parser.parse(cad_id)
-    return building
+    land = page_parser.parse(cad_id)
+    return land
 
 
 def parse_room(cad_id):

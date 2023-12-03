@@ -162,7 +162,7 @@ def make_register_file(src, order_id: int = 10002):
         if row_id == 2:
             ws_rooms.freeze_panes = 'A2'
 
-        area = float(area_to_return) if status in ('КВ', 'НЖ', 'ММ') else None
+        area = float(area_to_return.replace(',', '.')) if status in ('КВ', 'НЖ', 'ММ') else None
         if area:
             total_area += area
             areas_by_row[row_id] = area
@@ -278,16 +278,20 @@ def make_registry_sheet(wb: Workbook, src: str, ws_rooms: Worksheet, ws_registry
                                  # mod=1
                                  )
             # print(cad_id)
-            # print(prop)
+            print(prop)
             if 'долевая' in prop:
-                prop = prop.split('Общая долевая собственность')
-                regs = list(map(lambda x: ["Общая долевая собственность", *x.split("от")], prop[1:]))
+                prop = prop.split('\n')
+                print(prop)
+                prop = list(map(lambda x: x.replace('(Общая долевая собственность)', '').strip(), prop))
+                regs = list(map(lambda x: ["Общая долевая собственность", *x.split("от")], prop))
+                print(regs)
                 value = ', '.join([' от '.join((x[1].strip(), x[2].strip())) for x in regs])
                 ws_registry.cell(row=row_id, column=13).value = regs[0][0]
                 ws_registry.cell(row=row_id, column=14).value = f'Долевая собственность {value}'
             elif 'Собственность' in prop:
-                prop = prop.split('Собственность')
-                regs = ['Собственность', *prop[1].split("от")]
+                print(prop)
+                regs = ['Собственность', *prop.replace('(Cобственность)', '').strip().split('от')]
+                print(regs)
                 # print(regs)
                 ws_registry.cell(row=row_id, column=13).value = regs[0]
                 ws_registry.cell(row=row_id, column=14).value = regs[1].replace('№', '').strip()

@@ -1,7 +1,4 @@
-FROM joyzoursky/python-chromedriver:3.9
-
-# set display port to avoid crash
-ENV DISPLAY=:99
+FROM python:3.11
 
 ENV PYTHONUNBUFFERED=1
 
