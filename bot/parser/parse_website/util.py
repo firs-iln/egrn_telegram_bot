@@ -229,7 +229,7 @@ class Parser:
         futures = [api.search_cadastral_full(x.cad_id) for x in self.land.building.rooms]
         results = await asyncio.gather(*futures)
         pprint.pprint(results[0].model_dump())
-        results = [convert_model_to_appropriate_dict(x) for x in results]
+        results = [convert_model_to_appropriate_dict(x) for x in results if x]
 
         for result in results:
             # print(result)

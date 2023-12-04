@@ -36,8 +36,8 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 token = os.environ.get("TOKEN")
 order_id = 0
 
-main_keyboard = ReplyKeyboardMarkup.from_button(
-    KeyboardButton("ЕГРН"),
+main_keyboard = ReplyKeyboardMarkup([
+    [KeyboardButton("ЕГРН")], [KeyboardButton("/testfio")]],
     input_field_placeholder='Выберите действие:',
     resize_keyboard=True,
     one_time_keyboard=True,
@@ -215,6 +215,20 @@ async def choose_option_registry(update: Update, context: ContextTypes.DEFAULT_T
 letters_keyboard = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 
 
+def make_letters_keyboard(mapping: dict[str, str], skip_button: bool = False) -> InlineKeyboardMarkup:
+    columns = mapping
+    buttons_in_row = 5
+    letters_to_iterate = [letters_keyboard[i:i + buttons_in_row]
+                          for i in range(0, len(letters_keyboard), buttons_in_row)]
+    buttons = [[InlineKeyboardButton(text=x, callback_data=x)
+                for x in y
+                if x not in columns.values()]
+               for y in letters_to_iterate]
+    if skip_button:
+        buttons.append([InlineKeyboardButton(text="Пропустить", callback_data="0")])
+    return InlineKeyboardMarkup(buttons)
+
+
 async def got_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("i'm here")
 
@@ -227,15 +241,13 @@ async def got_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["owners_file"] = src
     columns = {}
-    buttons = [InlineKeyboardButton(text=x, callback_data=x)
-               for x in letters_keyboard
-               if x not in columns.values()]
 
-    markup = InlineKeyboardMarkup.from_column(buttons)
+    markup = make_letters_keyboard(columns)
 
     message = await update.effective_message.reply_text("Введите номер колонки с кадастровым номером",
                                                         reply_markup=markup)
     context.user_data["messages_to_delete"].append(message)
+    context.user_data["previous_column"] = message
     context.user_data["columns"] = columns
     return MainDialogStates.ASKED_CAD
 
@@ -267,17 +279,15 @@ async def asked_cad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.callback_query.data
     if text in letters_keyboard:
         columns = context.user_data["columns"]
-        buttons = [InlineKeyboardButton(text=x, callback_data=x)
-                   for x in letters_keyboard
-                   if x not in columns.values()]
 
         columns['cad_id'] = text
 
-        markup = InlineKeyboardMarkup.from_column(buttons)
+        markup = make_letters_keyboard(columns)
 
         message = await update.effective_message.reply_text("Укажите номер колонки с ФИО собственников",
                                                             reply_markup=markup)
-        context.user_data["messages_to_delete"].append(message)
+        await delete_message_or_skip(context.user_data["previous_column"])
+        context.user_data["previous_column"] = message
         context.user_data["columns"] = columns
         return MainDialogStates.ASKED_NAMES
 
@@ -289,20 +299,18 @@ async def asked_owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.callback_query.data
     if text in letters_keyboard:
         columns = context.user_data["columns"]
-        buttons = [InlineKeyboardButton(text=x, callback_data=x)
-                   for x in letters_keyboard
-                   if x not in columns.values()]
 
         columns['owner'] = text
 
-        markup = InlineKeyboardMarkup.from_column(buttons)
+        markup = make_letters_keyboard(columns)
 
         # send the same with update.effective_message.reply_text
         message = await update.effective_message.reply_text(
             "Введите или укажите номер колонки с Видом, № и датой госрегистрации:",
             reply_markup=markup)
 
-        context.user_data["messages_to_delete"].append(message)
+        await delete_message_or_skip(context.user_data["previous_column"])
+        context.user_data["previous_column"] = message
         context.user_data["columns"] = columns
         return MainDialogStates.ASKED_REG
 
@@ -313,22 +321,18 @@ async def asked_registration(update: Update, context: ContextTypes.DEFAULT_TYPE)
     text = update.callback_query.data
     if text in letters_keyboard:
         columns = context.user_data["columns"]
-        buttons = [InlineKeyboardButton(text=x, callback_data=x)
-                   for x in letters_keyboard
-                   if x not in columns.values()]
-
-        buttons.append(InlineKeyboardButton(text="Пропустить", callback_data="0"))
 
         columns['registred'] = text
 
-        markup = InlineKeyboardMarkup.from_column(buttons)
+        markup = make_letters_keyboard(columns, skip_button=True)
 
         # send the same with update.effective_message.reply_text
         message = await update.effective_message.reply_text(
             "Введите или укажите номер колонки с № и датой выписки ЕГРН (через запятую)",
             reply_markup=markup)
 
-        context.user_data["messages_to_delete"].append(message)
+        await delete_message_or_skip(context.user_data["previous_column"])
+        context.user_data["previous_column"] = message
         context.user_data["columns"] = columns
         return MainDialogStates.ASKED_EXTRACT
 
@@ -340,32 +344,29 @@ async def asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.callback_query.data
     if text in letters_keyboard:
         columns = context.user_data["columns"]
-        buttons = [InlineKeyboardButton(text=x, callback_data=x)
-                   for x in letters_keyboard
-                   if x not in columns.values()]
 
         columns['extract'] = text
 
-        markup = InlineKeyboardMarkup.from_column(buttons)
+        markup = make_letters_keyboard(columns)
 
         message = await context.bot.send_message(update.callback_query.message.chat.id,
-                                                 "Введите или укажите номер колонки с указанием доли в помещении (через запятую), пропустить ->/0:",
+                                                 "Введите или укажите номер колонки с указанием доли в помещении:",
                                                  reply_markup=markup)
-        context.user_data["messages_to_delete"].append(message)
+
+        await delete_message_or_skip(context.user_data["previous_column"])
+        context.user_data["previous_column"] = message
         context.user_data["columns"] = columns
         return MainDialogStates.ASKED_PARTS
     elif text == "0":
         columns = context.user_data["columns"]
-        buttons = [InlineKeyboardButton(text=x, callback_data=x)
-                   for x in letters_keyboard
-                   if x not in columns.values()]
 
-        markup = InlineKeyboardMarkup.from_column(buttons)
+        markup = make_letters_keyboard(columns)
 
         message = await context.bot.send_message(update.callback_query.message.chat.id,
-                                                 "Введите или укажите номер колонки с указанием доли в помещении (через запятую), пропустить ->/0:",
+                                                 "Введите или укажите номер колонки с указанием доли в помещении:",
                                                  reply_markup=markup)
-        context.user_data["messages_to_delete"].append(message)
+        await delete_message_or_skip(context.user_data["previous_column"])
+        context.user_data["previous_column"] = message
         return MainDialogStates.ASKED_PARTS
 
 
@@ -385,6 +386,7 @@ async def asked_parts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_document(update.callback_query.message.chat.id, regisrtry_file,
                                         reply_markup=main_keyboard)
+        await delete_message_or_skip(context.user_data["previous_column"])
         await delete_messages(context)
         return ConversationHandler.END
 
@@ -406,13 +408,7 @@ async def floor_pics(update: Update, context: ContextTypes.DEFAULT_TYPE):
     floors_filename = context.user_data.get("floors_file", None)
     res = get_floors_pics(src, floors, floors_filename)
     if res:
-        egrn = KeyboardButton("ЕГРН")
-
-        markup = ReplyKeyboardMarkup.from_button(egrn,
-                                                 input_field_placeholder='Выберите действие:',
-                                                 resize_keyboard=True)
-
-        await context.bot.send_document(update.message.chat.id, res, reply_markup=markup)
+        await context.bot.send_document(update.message.chat.id, res, reply_markup=main_keyboard)
         context.user_data["messages_to_delete"].append(update.message)
         await delete_messages(context)
     return MainDialogStates.WAIT
@@ -446,11 +442,12 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(token).build()
 
     app.add_handler(CommandHandler('start', start))
-    # app.add_handler(CommandHandler('testfio', test_fio))
 
     conversation_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters=TEXT & ~COMMAND, callback=egrn_chose),
-                                       CommandHandler('testfio', test_fio)],
+        entry_points=[
+            MessageHandler(filters=TEXT & ~COMMAND, callback=egrn_chose),
+            CommandHandler('testfio', test_fio)
+        ],
         states={
             MainDialogStates.GET_DOC: [MessageHandler(filters=Document.ALL, callback=get_doc)],
             MainDialogStates.CHOOSE_OPTION: [
@@ -464,7 +461,8 @@ if __name__ == '__main__':
                 CallbackQueryHandler(callback=choose_option_registry, pattern="no"),
                 CallbackQueryHandler(callback=choose_option_registry, pattern="table"),
             ],
-            MainDialogStates.FIO_TEST_ASKED_REGISTRY: [MessageHandler(filters=Document.ALL, callback=test_fio_got_registry)],
+            MainDialogStates.FIO_TEST_ASKED_REGISTRY: [
+                MessageHandler(filters=Document.ALL, callback=test_fio_got_registry)],
             MainDialogStates.ASKED_TABLE: [MessageHandler(filters=Document.ALL, callback=got_table)],
             MainDialogStates.ASKED_CAD: [CallbackQueryHandler(callback=asked_cad, pattern='^')],
             MainDialogStates.ASKED_NAMES: [CallbackQueryHandler(callback=asked_owners, pattern='^')],

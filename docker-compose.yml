@@ -9,8 +9,8 @@ services:
 #    restart: always
   egrn_bot:
     build:
-      platforms:
-        - "linux/amd64"
+#      platforms:
+#        - "linux/amd64"
       context: .
       dockerfile: Dockerfile
     container_name: egrn_bot
