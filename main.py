@@ -18,8 +18,6 @@ from bot.parser.parse_website.util import Parser
 
 from bot.states import MainDialogStates
 
-from egrn_api.EgrnApiRepo import EGRNAPI
-
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -37,7 +35,7 @@ token = os.environ.get("TOKEN")
 order_id = 0
 
 main_keyboard = ReplyKeyboardMarkup([
-    [KeyboardButton("ЕГРН")], [KeyboardButton("/testfio")]],
+    [KeyboardButton("ЕГРН"), KeyboardButton("/testfio")]],
     input_field_placeholder='Выберите действие:',
     resize_keyboard=True,
     one_time_keyboard=True,
@@ -57,6 +55,7 @@ async def egrn_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
         remove_markup = ReplyKeyboardRemove()
         message = await context.bot.send_message(update.message.chat.id, "Вставьте файл выписки на здание:",
                                                  reply_markup=remove_markup)
+        context.user_data["messages_to_delete"] = []
         context.user_data["messages_to_delete"].extend([message, update.message])
         return MainDialogStates.GET_DOC
 
@@ -106,54 +105,50 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["messages_to_delete"].extend([tmp_msg])
 
     doc = write_first_and_seventh(*[*process_pdf(src), src])
-    cad = find_info(src)["Кадастровый номер"]
-
     context.user_data["fs_doc"] = doc
 
-    floors_reply = floors(src)
+    cad = find_info(src)["Кадастровый номер"]
+    context.user_data["cad"] = cad
 
-    floors_file = f'bot/files/{cad}.txt'
-    with open(floors_file, 'wt', encoding='utf-8') as f:
-        f.write(floors_reply)
+    cad_id, addr = get_addr_and_cad_id(doc)
 
-    context.user_data["floors_file"] = floors_file
+    reply = f'''МКД: {addr}\nКадастровый номер: {cad_id}\n\nСоздать файл РеестрМКД?'''
 
     pics = InlineKeyboardButton(text="Планы", callback_data="plans")
-    parse_site = InlineKeyboardButton(text="Запустить", callback_data="online")
-    markup = InlineKeyboardMarkup([[pics, parse_site]])
+    makefile = InlineKeyboardButton(text="РеестрМКД", callback_data="makefile")
+    markup = InlineKeyboardMarkup([[pics, makefile]])
 
     await message_to_reply.reply_document(doc, quote=True)
 
-    message = await context.bot.send_message(update.message.chat.id, floors_reply, reply_markup=markup)
+    await update.effective_message.reply_text(text=reply, reply_markup=markup)
 
     await delete_messages(context)
-    context.user_data["messages_to_delete"].append(message)
-
     return MainDialogStates.CHOOSE_OPTION
 
 
+# async def online_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     print("online chose awaited")
+#     context.user_data["messages_to_delete"] = []
+#     await update.callback_query.answer()
+#
+#     text = update.callback_query.data
+#     if text == "online":
+#         src = context.user_data["fs_doc"]
+#
+#         cad_id, addr = get_addr_and_cad_id(src)
+#
+#         reply = f'''МКД: {addr}\nКадастровый номер: {cad_id}\n\nСоздать файл РеестрМКД?'''
+#
+#         button = InlineKeyboardButton(text="РеестрМКД", callback_data="makefile")
+#
+#         markup = InlineKeyboardMarkup.from_button(button)
+#
+#         await update.effective_message.reply_text(text=reply, reply_markup=markup)
+#
+#         return MainDialogStates.ONLINE_CONFIRM
+
+
 async def online_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("online chose awaited")
-    await update.callback_query.answer()
-
-    text = update.callback_query.data
-    if text == "online":
-        src = context.user_data["fs_doc"]
-
-        cad_id, addr = get_addr_and_cad_id(src)
-
-        reply = f'''МКД: {addr}\nКадастровый номер: {cad_id}\n\nСоздать файл РеестрМКД?'''
-
-        button = InlineKeyboardButton(text="РеестрМКД", callback_data="makefile")
-
-        markup = InlineKeyboardMarkup.from_button(button)
-
-        await update.effective_message.reply_text(text=reply, reply_markup=markup)
-
-        return MainDialogStates.ONLINE_CONFIRM
-
-
-async def online_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     text = update.callback_query.data
@@ -247,7 +242,7 @@ async def got_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = await update.effective_message.reply_text("Введите номер колонки с кадастровым номером",
                                                         reply_markup=markup)
     context.user_data["messages_to_delete"].append(message)
-    context.user_data["previous_column"] = message
+    context.user_data["previous_column"] = [message]
     context.user_data["columns"] = columns
     return MainDialogStates.ASKED_CAD
 
@@ -281,15 +276,24 @@ async def asked_cad(update: Update, context: ContextTypes.DEFAULT_TYPE):
         columns = context.user_data["columns"]
 
         columns['cad_id'] = text
+        await delete_previous_column(context)
+
+        message = await update.effective_message.reply_text(f"Столбец с кадастровым номером: {text}")
+        context.user_data["previous_column"].append(message)
 
         markup = make_letters_keyboard(columns)
 
         message = await update.effective_message.reply_text("Укажите номер колонки с ФИО собственников",
                                                             reply_markup=markup)
-        await delete_message_or_skip(context.user_data["previous_column"])
-        context.user_data["previous_column"] = message
+        context.user_data["previous_column"].append(message)
         context.user_data["columns"] = columns
         return MainDialogStates.ASKED_NAMES
+
+
+async def delete_previous_column(context: ContextTypes.DEFAULT_TYPE):
+    for message in context.user_data.get("previous_column", []):
+        await message.delete()
+    context.user_data["previous_column"] = []
 
 
 async def asked_owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -302,6 +306,11 @@ async def asked_owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         columns['owner'] = text
 
+        await delete_previous_column(context)
+
+        message = await update.effective_message.reply_text(f"Столбец с ФИО собственников: {text}")
+        context.user_data["previous_column"].append(message)
+
         markup = make_letters_keyboard(columns)
 
         # send the same with update.effective_message.reply_text
@@ -309,8 +318,7 @@ async def asked_owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Введите или укажите номер колонки с Видом, № и датой госрегистрации:",
             reply_markup=markup)
 
-        await delete_message_or_skip(context.user_data["previous_column"])
-        context.user_data["previous_column"] = message
+        context.user_data["previous_column"].append(message)
         context.user_data["columns"] = columns
         return MainDialogStates.ASKED_REG
 
@@ -323,6 +331,9 @@ async def asked_registration(update: Update, context: ContextTypes.DEFAULT_TYPE)
         columns = context.user_data["columns"]
 
         columns['registred'] = text
+        await delete_previous_column(context)
+        message = await update.effective_message.reply_text(f"Столбец с Видом, № и датой госрегистрации: {text}")
+        context.user_data["previous_column"].append(message)
 
         markup = make_letters_keyboard(columns, skip_button=True)
 
@@ -331,8 +342,7 @@ async def asked_registration(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "Введите или укажите номер колонки с № и датой выписки ЕГРН (через запятую)",
             reply_markup=markup)
 
-        await delete_message_or_skip(context.user_data["previous_column"])
-        context.user_data["previous_column"] = message
+        context.user_data["previous_column"].append(message)
         context.user_data["columns"] = columns
         return MainDialogStates.ASKED_EXTRACT
 
@@ -346,6 +356,10 @@ async def asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
         columns = context.user_data["columns"]
 
         columns['extract'] = text
+        await delete_previous_column(context)
+
+        message = await update.effective_message.reply_text(f"Столбец с № и датой выписки ЕГРН: {text}")
+        context.user_data["previous_column"].append(message)
 
         markup = make_letters_keyboard(columns)
 
@@ -353,8 +367,7 @@ async def asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                  "Введите или укажите номер колонки с указанием доли в помещении:",
                                                  reply_markup=markup)
 
-        await delete_message_or_skip(context.user_data["previous_column"])
-        context.user_data["previous_column"] = message
+        context.user_data["previous_column"].append(message)
         context.user_data["columns"] = columns
         return MainDialogStates.ASKED_PARTS
     elif text == "0":
@@ -362,11 +375,12 @@ async def asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         markup = make_letters_keyboard(columns)
 
+        await delete_previous_column(context)
+
         message = await context.bot.send_message(update.callback_query.message.chat.id,
                                                  "Введите или укажите номер колонки с указанием доли в помещении:",
                                                  reply_markup=markup)
-        await delete_message_or_skip(context.user_data["previous_column"])
-        context.user_data["previous_column"] = message
+        context.user_data["previous_column"].append(message)
         return MainDialogStates.ASKED_PARTS
 
 
@@ -378,6 +392,7 @@ async def asked_parts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         columns = context.user_data["columns"]
 
         columns['part'] = text
+        await delete_previous_column(context)
 
         regisrtry_file = context.user_data["res_file"]
         owners_file = context.user_data["owners_file"]
@@ -386,7 +401,6 @@ async def asked_parts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_document(update.callback_query.message.chat.id, regisrtry_file,
                                         reply_markup=main_keyboard)
-        await delete_message_or_skip(context.user_data["previous_column"])
         await delete_messages(context)
         return ConversationHandler.END
 
@@ -396,8 +410,21 @@ async def pics_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = update.callback_query.data
     if text == "plans":
+        src = context.user_data["src"]
+        cad = context.user_data["cad"]
+        floors_reply = floors(src)
+
+        floors_file = f'bot/files/{cad}.txt'
+        with open(floors_file, 'wt', encoding='utf-8') as f:
+            f.write(floors_reply)
+
+        context.user_data["floors_file"] = floors_file
+
+        message = await context.bot.send_message(update.message.chat.id, floors_reply)
+        context.user_data["messages_to_delete"].append(message)
+
         message = await context.bot.send_message(update.callback_query.message.chat.id,
-                                                 "Введите номера листов для получения архива поэтажный планов: (через запятую или пробел)")
+                                                 "Введите номера листов для получения архива поэтажных планов: (через запятую или пробел)")
         context.user_data["messages_to_delete"].append(message)
         return MainDialogStates.FLOORS_PICS
 
@@ -452,10 +479,10 @@ if __name__ == '__main__':
             MainDialogStates.GET_DOC: [MessageHandler(filters=Document.ALL, callback=get_doc)],
             MainDialogStates.CHOOSE_OPTION: [
                 CallbackQueryHandler(callback=pics_chose, pattern="plans"),
-                CallbackQueryHandler(callback=online_chose, pattern="online"),
+                CallbackQueryHandler(callback=online_chose, pattern="makefile"),
             ],
             MainDialogStates.FLOORS_PICS: [MessageHandler(filters=TEXT & ~COMMAND, callback=floor_pics)],
-            MainDialogStates.ONLINE_CONFIRM: [CallbackQueryHandler(callback=online_confirm, pattern="makefile")],
+            # MainDialogStates.ONLINE_CONFIRM: [CallbackQueryHandler(callback=online_confirm, pattern="makefile")],
             MainDialogStates.CHOOSE_OPTION_REGISTRY: [
                 CallbackQueryHandler(callback=choose_option_registry, pattern="extract"),
                 CallbackQueryHandler(callback=choose_option_registry, pattern="no"),

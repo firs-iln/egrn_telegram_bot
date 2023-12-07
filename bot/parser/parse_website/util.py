@@ -14,6 +14,10 @@ from egrn_api import api, SearchResponse
 
 import asyncio
 
+from logging import getLogger
+
+logger = getLogger(__name__)
+
 """
 Общая информация
     Вид объекта недвижимости Здание
@@ -100,34 +104,43 @@ import asyncio
 
 def convert_model_to_appropriate_dict(model: SearchResponse) -> dict:
     result = model.results[0]
-    return {
-    'Общая информация': {
-      'Вид объекта недвижимости': result.oks_type_more or result.obj_type,
-      'Статус объекта': result.status,
-      'Кадастровый номер': result.cad_num,
-      'Дата присвоения кадастрового номера': result.reg_date,
-      'Форма собственности': result.ownersheep_type,
-    },
-    'Характеристики объекта': {
-      'Адрес (местоположение)': result.address,
-      'Площадь, кв.м': result.area,
-      'Назначение': result.oks_purpose,
-      'Этаж': result.floor,
-    },
-    'Сведения о кадастровой стоимости': {
-      'Кадастровая стоимость (руб)': result.cad_cost,
-      'Дата определения': result.cost_definition_date,
-      'Дата внесения': result.cost_insertion_date
-    },
-    'Ранее присвоенные номера': {
-      'Условный номер': [el for el in result.prev_nums if el.type == 'cond_num'][0].value if len([el for el in result.prev_nums if el.type == 'cond_num']) > 0 else '',
-      'Инвентарный номер': [el for el in result.prev_nums if el.type == 'inv_num'][0].value if len([el for el in result.prev_nums if el.type == 'inv_num']) > 0 else ''
-    },
-    'Сведения о правах и ограничениях (обременениях)': {
-      'Вид, номер и дата государственной регистрации права': '\n'.join([el.right.strip() for el in filter(lambda x: x.right, result.rights)]) if len(result.rights) > 0 else '',
-      # 'Ограничение прав и обременение объекта недвижимости': result.rnb.bounds[0].bound_r if len(result.rnb.bounds) > 0 else ''
+    res = {
+        'Общая информация': {
+            'Вид объекта недвижимости': result.oks_type_more or result.obj_type,
+            'Статус объекта': result.status,
+            'Кадастровый номер': result.cad_num,
+            'Дата присвоения кадастрового номера': result.reg_date,
+            'Форма собственности': result.ownersheep_type,
+        },
+        'Характеристики объекта': {
+            'Адрес (местоположение)': result.address,
+            'Площадь, кв.м': result.area,
+            'Назначение': result.oks_purpose,
+            'Этаж': result.floor,
+        },
+        'Сведения о кадастровой стоимости': {
+            'Кадастровая стоимость (руб)': result.cad_cost,
+            'Дата определения': result.cost_definition_date,
+            'Дата внесения': result.cost_insertion_date
+        },
+        'Ранее присвоенные номера': {
+            'Условный номер': [el for el in result.prev_nums if el.type == 'cond_num'][0].value if len(
+                [el for el in result.prev_nums if el.type == 'cond_num']) > 0 else '',
+            'Инвентарный номер': [el for el in result.prev_nums if el.type == 'inv_num'][0].value if len(
+                [el for el in result.prev_nums if el.type == 'inv_num']) > 0 else ''
+        },
     }
-}
+    rights = '\n'.join(
+        [el.right.strip() for el in filter(lambda x: x.right, result.rights)]) if len(
+        result.rights) > 0 else ''
+    # print(10101010101010101010101010110100101010101)
+    # with open('log.txt', 'a') as f:
+    #     print(result.cad_num, rights, file=f)
+    if rights:
+        res['Сведения о правах и ограничениях (обременениях)'] = {}
+        res['Сведения о правах и ограничениях (обременениях)'][
+            'Вид, номер и дата государственной регистрации права'] = rights
+    return res
 
 
 class CadObject:
@@ -228,9 +241,9 @@ class Parser:
 
         futures = [api.search_cadastral_full(x.cad_id) for x in self.land.building.rooms]
         results = await asyncio.gather(*futures)
-        pprint.pprint(results[0].model_dump())
+        # pprint.pprint(results[0].model_dump())
         results = [convert_model_to_appropriate_dict(x) for x in results if x]
-
+        # pprint.pprint(results[0])
         for result in results:
             # print(result)
             if result:
@@ -281,10 +294,10 @@ class Parser:
         wb.save(self.src)
 
     async def process_objects(self):
+        print("procceessing...")
         self.get_objects_from_seventh()
         await self.get_objects_from_api()  # self.parse_objects()
         self.write_objects()
-
 
 # if __name__ == '__main__':
 #     src = input()

@@ -107,6 +107,10 @@ class DadataRepository:
         response = self.dadata.clean("address", address)
         return DadataAddress(**response).fias_id
 
+    def get_data(self, address: str) -> DadataAddress:
+        response = self.dadata.clean("address", address)
+        return DadataAddress(**response)
+
 
 API_KEY = os.environ.get('DADATA_API_KEY')
 SECRET_KEY = os.environ.get('DADATA_SECRET_KEY')

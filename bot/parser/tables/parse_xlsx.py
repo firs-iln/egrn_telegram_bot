@@ -85,8 +85,11 @@ def make_register_file(src, order_id: int = 10002):
     ws_building: Worksheet = wb.get_sheet_by_name("Дом")
     ws_building.cell(row=1, column=2).value = order_id
     ws_building.cell(row=2, column=2).value = cad
-    ws_building.cell(row=9, column=2).value = address
-    ws_building.cell(row=8, column=2).value = dadata.get_fias_id(address)
+
+    dadata_data = dadata.get_data(address)
+
+    ws_building.cell(row=9, column=2).value = dadata_data.postal_code + ', ' + address
+    ws_building.cell(row=8, column=2).value = dadata_data.fias_id
 
     ws_rooms: Worksheet = wb.get_sheet_by_name("Помещения")
     ws_registry: Worksheet = wb.get_sheet_by_name("Реестр")
@@ -109,8 +112,6 @@ def make_register_file(src, order_id: int = 10002):
         kind = find_property(room_info, 'Вид объекта недвижимости', 'Статус объекта').lower()
         if kind == 'помещение':
             purpose = find_property(room_info, 'Назначение', 'Этаж')
-            if 'Вид, номер и дата государственной регистрации права' not in room_info:
-                status = 'ОИ'
             if "лк" in address.lower():
                 status = "ЛК"
             else:
@@ -122,6 +123,8 @@ def make_register_file(src, order_id: int = 10002):
                 status = 'ОИ'
             elif 'Н' in number:
                 status = 'НЖ'
+            if 'Вид, номер и дата государственной регистрации права' not in room_info and status == 'НЖ':
+                status = 'ОИ'
         elif kind == 'здание':
             status = "МКД"
         elif kind == 'земельный участок':
@@ -140,10 +143,11 @@ def make_register_file(src, order_id: int = 10002):
         address_cell = ws_rooms.cell(row=row_id, column=2)
         address_cell.value = address
 
-        if status != 'ЗУ':
-            area_to_return = find_property(room_info, 'Площадь, кв.м', 'Назначение')
-        else:
-            area_to_return = find_property(room_info, 'Площадь, кв.м', 'Категория земель')
+        # if status != 'ЗУ':
+        #     area_to_return = find_property(room_info, 'Площадь, кв.м', 'Назначение')
+        # else:
+        #     area_to_return = find_property(room_info, 'Площадь, кв.м', 'Категория земель')
+        area_to_return = find_property(room_info, 'Площадь, кв.м', 'Назначение')
 
         area = area_to_return.replace('.', ',')
         formal_area_cell = ws_rooms.cell(row=row_id, column=4)
@@ -151,7 +155,7 @@ def make_register_file(src, order_id: int = 10002):
         real_area_cell = ws_rooms.cell(row=row_id, column=8)
         real_area_cell.value = area
 
-        if status in statuses.values():
+        if status not in ('ЗУ', 'МКД'):
             floor = find_property(room_info, 'Этаж', 'Сведения о кадастровой стоимости')
             floor_cell = ws_rooms.cell(row=row_id, column=12)
             floor_cell.value = floor if floor else 'б/н'
@@ -224,6 +228,12 @@ def make_register_file(src, order_id: int = 10002):
     for i, row in enumerate(ws_rooms.iter_rows(min_row=2), start=2):
         ws_rooms.row_dimensions[i].height = 12
 
+    # for cell in ws_rooms['D']:
+    #     cell.number_format = '0.00'
+    #
+    # for cell in ws_registry['D']:
+    #     cell.number_format = '0.00'
+
     wb.save(res)
 
     return res, total_area
@@ -289,7 +299,8 @@ def make_registry_sheet(wb: Workbook, src: str, ws_rooms: Worksheet, ws_registry
                 # print(regs)
                 ws_registry.cell(row=row_id, column=13).value = regs[0]
                 ws_registry.cell(row=row_id, column=14).value = regs[1].replace('№', '').strip()
-                ws_registry.cell(row=row_id, column=15).value = regs[2].strip()
+                print(regs[2].strip(), regs[2].strip().replace('(Собственность)', ''))
+                ws_registry.cell(row=row_id, column=15).value = regs[2].strip().replace('(Собственность)', '')
 
             no_data_placeholder = 'нет данных'
 
