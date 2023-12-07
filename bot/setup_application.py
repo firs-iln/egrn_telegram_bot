@@ -41,6 +41,7 @@ main_keyboard = ReplyKeyboardMarkup([
     one_time_keyboard=True,
 )
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = await context.bot.send_message(chat_id=update.effective_chat.id,
                                              text="Выберите действие из меню",
@@ -57,6 +58,8 @@ async def egrn_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["messages_to_delete"] = []
         context.user_data["messages_to_delete"].extend([message, update.message])
         return MainDialogStates.GET_DOC
+    else:
+        await test_fio(update, context)
 
 
 async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
