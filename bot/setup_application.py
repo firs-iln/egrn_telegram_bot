@@ -35,7 +35,7 @@ token = os.environ.get("TOKEN")
 order_id = 0
 
 main_keyboard = ReplyKeyboardMarkup([
-    [KeyboardButton("ЕГРН"), KeyboardButton("/testfio")]],
+    [KeyboardButton("ЕГРН"), KeyboardButton("Импорт ФИО")]],
     input_field_placeholder='Выберите действие:',
     resize_keyboard=True,
     one_time_keyboard=True,
@@ -247,9 +247,10 @@ async def got_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def test_fio(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Вставьте пустой РеестрМКД в формате .xlsx")
-    context.user_data["messages_to_delete"] = []
-    return MainDialogStates.FIO_TEST_ASKED_REGISTRY
+    if update.message.text == 'Импорт ФИО':
+        await update.message.reply_text("Вставьте пустой РеестрМКД в формате .xlsx")
+        context.user_data["messages_to_delete"] = []
+        return MainDialogStates.FIO_TEST_ASKED_REGISTRY
 
 
 async def test_fio_got_registry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -472,7 +473,7 @@ def get_application():
     conversation_handler = ConversationHandler(
         entry_points=[
             MessageHandler(filters=TEXT & ~COMMAND, callback=egrn_chose),
-            CommandHandler('testfio', test_fio)
+            MessageHandler(filters=TEXT & ~COMMAND, callback=test_fio)
         ],
         states={
             MainDialogStates.GET_DOC: [MessageHandler(filters=Document.ALL, callback=get_doc)],
