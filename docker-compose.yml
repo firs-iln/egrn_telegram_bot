@@ -15,11 +15,28 @@ services:
       dockerfile: Dockerfile
     container_name: egrn_bot
     restart: always
-    command: sh -c "python main.py"
+    command: sh -c "uvicorn main:app --port 9999 --host 0.0.0.0"
+#    command: sh -c "python main.py"
     env_file:
       - .env
     volumes:
+      - ./migrations/versions:/code/migrations/versions
       - ./logs:/bot/logs
       - ./bot/bot_data.pickle:/bot/bot/bot_data.pickle
-#    depends_on:
-#      - egrn_selenium_driver
+    depends_on:
+      - db
+  db:
+    image: postgres:15
+    container_name: mkd_database
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    ports:
+      - "5430:5432"
+    env_file:
+      - .env
+
+volumes:
+  postgres_data:
