@@ -57,6 +57,31 @@ def write_first_and_seventh(addr: str,
     return res
 
 
+def write_first_and_seventh_to_dir(addr: str,
+                            cad_id: str,
+                            first_div: list,
+                            seventh_div: list,
+                            dir: str):
+    wb: Workbook = Workbook()
+    ws = wb.active
+    wb.remove(ws)
+
+    # writing divs
+    ws1: Worksheet = wb.create_sheet('Раздел 1')
+    ws7: Worksheet = wb.create_sheet('Раздел 7')
+    for row in first_div:
+        ws1.append([row[0], row[1]])
+    for row in seventh_div:
+        ws7.append([x for x in row if x])
+    resize_columns(ws1)
+    resize_columns(ws7)
+    print("proceed")
+    res = f'{dir}/{cad_id}_{addr}.xlsx'
+    # os.system(f'touch "{res}"')
+    wb.save(res)
+    return res
+
+
 def write_to_table(order_id: int,  # deprecated
                    cad_id: str,
                    addr: str,

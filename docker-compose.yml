@@ -23,8 +23,11 @@ services:
       - ./migrations/versions:/code/migrations/versions
       - ./logs:/bot/logs
       - ./bot/bot_data.pickle:/bot/bot/bot_data.pickle
+      - ./files:/bot/files
     depends_on:
       - db
+    ports:
+      - "9999:9999"
   db:
     image: postgres:15
     container_name: mkd_database

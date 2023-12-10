@@ -9,17 +9,26 @@ from telegram.ext import ContextTypes, ApplicationBuilder, CommandHandler, Messa
 from telegram.ext.filters import TEXT, Document, COMMAND
 
 from bot.parser.parse_pdf import find_info, check_pdf_to_be_valid_doc, get_floors_pics, floors, process_pdf, \
-    write_to_table
-from bot.parser.tables.temp_writer import write_to_table, write_first_and_seventh
+    write_to_table, cad_id_from_table
+from bot.parser.tables.temp_writer import write_to_table, write_first_and_seventh, write_first_and_seventh_to_dir
 from bot.parser.tables.parse_xlsx import get_addr_and_cad_id, make_register_file, check_for_spaces_in_column, \
     join_owners_and_registry
 
 from bot.parser.parse_website.util import Parser
 
-from bot.states import MainDialogStates
+from bot.states import MainDialogStates, ApiDialogStates
 
 import logging
 from logging.handlers import RotatingFileHandler
+
+from bot.middlewares import SessionMiddleware, UserMiddleware, Middleware
+
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from database import engine
+
+from crud import request as request_service
+
+from client_server_api import client_server_api
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -152,7 +161,7 @@ async def online_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data["res_file"] = doc
 
-        reply = f'Площадь КВ+НЖ+ММ = {area} кв.м.\nЗагрузить ФИО собственников в РеестрМКД?'
+        reply = f'Площадь КВ+НЖ+ММ = {area:.1f} кв.м.\nЗагрузить ФИО собственников в РеестрМКД?'
 
         table_button = InlineKeyboardButton(text="Таблица", callback_data="table")
         extract_button = InlineKeyboardButton(text="Выписка", callback_data="extract")
@@ -188,7 +197,8 @@ async def choose_option_registry(update: Update, context: ContextTypes.DEFAULT_T
         return MainDialogStates.CHOOSE_OPTION_REGISTRY
 
 
-letters_keyboard = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+letters_keyboard = ['A(1)', 'B(2)', 'C(3)', 'D(4)', 'E(5)', 'F(6)', 'G(7)', 'H(8)', 'I(9)', 'J(10)']
 
 
 def make_letters_keyboard(mapping: dict[str, str], skip_button: bool = False) -> InlineKeyboardMarkup:
@@ -198,7 +208,7 @@ def make_letters_keyboard(mapping: dict[str, str], skip_button: bool = False) ->
                           for i in range(0, len(letters_keyboard), buttons_in_row)]
     buttons = [[InlineKeyboardButton(text=x, callback_data=x)
                 for x in y
-                if x not in columns.values()]
+                if x[0] not in columns.values()]
                for y in letters_to_iterate]
     if skip_button:
         buttons.append([InlineKeyboardButton(text="Пропустить", callback_data="0")])
@@ -259,7 +269,7 @@ async def asked_cad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text in letters_keyboard:
         columns = context.user_data["columns"]
 
-        columns['cad_id'] = text
+        columns['cad_id'] = text[0]
         await delete_previous_column(context)
 
         message = await update.effective_message.reply_text(f"Кадастровый номер: {text}")
@@ -288,7 +298,7 @@ async def asked_owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text in letters_keyboard:
         columns = context.user_data["columns"]
 
-        columns['owner'] = text
+        columns['owner'] = text[0]
 
         await delete_previous_column(context)
 
@@ -314,7 +324,7 @@ async def asked_registration(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if text in letters_keyboard:
         columns = context.user_data["columns"]
 
-        columns['registred'] = text
+        columns['registred'] = text[0]
         await delete_previous_column(context)
         message = await update.effective_message.reply_text(f"Вид, № и датой госрегистрации: {text}")
         context.user_data["previous_column"].append(message)
@@ -339,7 +349,7 @@ async def asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text in letters_keyboard:
         columns = context.user_data["columns"]
 
-        columns['extract'] = text
+        columns['extract'] = text[0]
         await delete_previous_column(context)
 
         message = await update.effective_message.reply_text(f"№ и дата выписки ЕГРН: {text}")
@@ -375,7 +385,7 @@ async def asked_parts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text in letters_keyboard:
         columns = context.user_data["columns"]
 
-        columns['part'] = text
+        columns['part'] = text[0]
         await delete_previous_column(context)
 
         regisrtry_file = context.user_data["res_file"]
@@ -396,6 +406,9 @@ async def pics_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cad = context.user_data["cad"]
         floors_reply = floors(src)
 
+        context.user_data["available_pages"] = floors_reply[1]
+        floors_reply = floors_reply[0]
+
         floors_file = f'bot/files/{cad}.txt'
         with open(floors_file, 'wt', encoding='utf-8') as f:
             f.write(floors_reply)
@@ -412,10 +425,22 @@ async def pics_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def floor_pics(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    floors = re.split(', |,| ', update.message.text)
+    floors_numbers = re.split(', |,| ', update.message.text)
+    available_pages = context.user_data["available_pages"]
+    pages_to_check = []
+    for y in available_pages:
+        pages_to_check.extend(y)
+    for floor in floors_numbers:
+        if int(floor) not in pages_to_check:
+            print(type(floor), pages_to_check)
+            message = await update.effective_message.reply_text(
+                "Вы ввели некорректные номера листов. Пожалуйста, введите номера из списка выше")
+            context.user_data["messages_to_delete"].append(message)
+            return MainDialogStates.FLOORS_PICS
+
     src = context.user_data["src"]
     floors_filename = context.user_data.get("floors_file", None)
-    res = get_floors_pics(src, floors, floors_filename)
+    res = get_floors_pics(src, floors_numbers, floors_filename)
     if res:
         await context.bot.send_document(update.message.chat.id, res, reply_markup=main_keyboard)
         context.user_data["messages_to_delete"].append(update.message)
@@ -443,10 +468,343 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def api_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    request_id = int(update.callback_query.data.split('_')[-1])
+    context.user_data["request_id"] = request_id
+    context.user_data["messages_to_delete"] = []
+    await update.effective_message.reply_text("Вставьте .pdf файл выписки")
+    return ApiDialogStates.ASKED_EXTRACT
+
+
+# noinspection DuplicatedCode
+async def api_asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    file = await context.bot.get_file(update.message.document)
+
+    received_files_path = 'bot/files/received/'
+
+    message_to_reply = update.message
+
+    document_name = update.message.document.file_name
+    src = received_files_path + document_name
+    await file.download_to_drive(src)
+
+    if not document_name.endswith(".pdf"):  # file format check
+        if not document_name.endswith("zip"):
+            message = await update.message.reply_text("Неверный формат файла, попробуйте ещё раз")
+            context.user_data["messages_to_delete"].extend([message, update.message])
+            return
+
+        with open(src, 'rb') as zip:
+            if zipfile.is_zipfile(zip):
+                z = zipfile.ZipFile(zip)
+                for member in z.namelist():
+                    if member.split('.')[-1] == 'pdf':
+                        z.extract(member=member, path=received_files_path)
+                        new_name = find_info(received_files_path + member)
+                        new_name = ' '.join(new_name.values()) + ".pdf"
+                        src = received_files_path + new_name
+                        os.rename(received_files_path + member, src)
+                        message_to_reply = await context.bot.send_document(update.message.chat.id, src)
+                        await update.message.delete()
+                        break
+
+    if not check_pdf_to_be_valid_doc(src):  # file contains some title
+        message = await update.message.reply_text("Неверный формат файла, попробуйте ещё раз")
+        context.user_data["messages_to_delete"].extend([message, update.message])
+        os.remove(src)
+        return
+
+    request_id = context.user_data["request_id"]
+    request = await request_service.get_request(session=context.session, request_id=request_id)
+
+    cad = find_info(src)["Кадастровый номер"]
+    context.user_data["cad"] = cad
+
+    cadnum = cad_id_from_table(src)
+
+    if cadnum != request.cadnum:
+        message = await update.message.reply_text("Неверный кадастровый номер, попробуйте ещё раз")
+        context.user_data["messages_to_delete"].extend([message, update.message])
+        os.remove(src)
+        return
+
+    context.user_data["src"] = src
+
+    tmp_msg = await update.effective_message.reply_text(
+        "Обработка начата, ожидайте..."
+    )
+    context.user_data["messages_to_delete"].extend([tmp_msg])
+
+    doc = write_first_and_seventh_to_dir(*[*process_pdf(src), f"files"])
+    context.user_data["fs_doc"] = doc
+
+    request.r1r7_filename = doc
+    # print(doc)
+    await context.session.commit()
+
+    cad_id, addr = get_addr_and_cad_id(doc)
+    reply = f'''МКД: {addr}\nКадастровый номер: {cad_id}\n\nПроверьте правильность данных. Если данные неверны, нажмите "Редактировать", если верны - "Подтвердить"'''
+
+    edit_button = InlineKeyboardButton(text="Редактировать", callback_data=f"r1r7_edit_{request_id}")
+    confirm_button = InlineKeyboardButton(text="Подтвердить", callback_data=f"r1r7_confirm_{request_id}")
+    markup = InlineKeyboardMarkup([[edit_button, confirm_button]])
+
+    await message_to_reply.reply_document(doc, quote=True)
+
+    await update.effective_message.reply_text(text=reply, reply_markup=markup)
+
+    await delete_messages(context)
+    return ApiDialogStates.CONFIRM_R1R7
+
+
+async def api_confirm_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.effective_message.reply_text("Данные подтверждены")
+
+    request_id = context.user_data["request_id"]
+    request = await request_service.get_request(session=context.session, request_id=request_id)
+
+    await client_server_api.post_request(request.order_id, 'r1r7_is_ready')
+
+    await delete_messages(context)
+    return ApiDialogStates.CONFIRMED_R1R7
+
+
+async def api_ask_edit_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.effective_message.reply_text("Вставьте исправленный файл Р1Р7")
+    return ApiDialogStates.EDIT_R1R7
+
+
+async def api_edit_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    file = await context.bot.get_file(update.message.document)
+
+    received_files_path = 'bot/files/received/'
+
+    document_name = update.message.document.file_name
+
+    if not document_name.endswith(".xlsx"):
+        message = await update.message.reply_text("Неверный формат файла, попробуйте ещё раз")
+        context.user_data["messages_to_delete"].extend([message, update.message])
+        return
+
+    src = received_files_path + document_name
+    await file.download_to_drive(src)
+
+    await api_confirm_r1r7(update, context)
+
+
+async def api_confirm_registry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.effective_message.reply_text("Данные подтверждены")
+
+    request_id = int(update.callback_query.data.split("_")[-1])
+
+    request = await request_service.get_request(session=context.session, request_id=request_id)
+
+    await client_server_api.post_request(request.order_id, 'registry_is_ready')
+
+    await delete_messages(context)
+    return ApiDialogStates.CONFIRMED_REGISTRY
+
+
+async def api_ask_edit_registry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    request_id = int(update.callback_query.data.split("_")[-1])
+    context.user_data["request_id"] = request_id
+
+    await update.effective_message.reply_text("Вставьте исправленный файл реестра")
+
+    return ApiDialogStates.EDIT_REGISTRY
+
+
+async def api_edit_registry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    file = await context.bot.get_file(update.message.document)
+
+    # received_files_path = 'files/'
+
+    document_name = update.message.document.file_name
+
+    if not document_name.endswith(".xlsx"):
+        message = await update.message.reply_text("Неверный формат файла, попробуйте ещё раз")
+        context.user_data["messages_to_delete"].extend([message, update.message])
+        return
+
+    request = await request_service.get_request(session=context.session, request_id=context.user_data["request_id"])
+
+    src = request.registry_filename
+    await file.download_to_drive(src)
+
+    await api_confirm_registry(update, context)
+
+
+async def api_ask_insert_owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    request_id = int(update.callback_query.data.split("_")[-1])
+    context.user_data["request_id"] = request_id
+
+    request = await request_service.get_request(session=context.session, request_id=context.user_data["request_id"])
+
+    if request.fio_is_provided:
+        columns = {}
+
+        markup = make_letters_keyboard(columns)
+
+        message = await update.effective_message.reply_text("Укажите номер колонки с кадастровым номером",
+                                                            reply_markup=markup)
+        context.user_data["messages_to_delete"].append(message)
+        context.user_data["previous_column"] = [message]
+        context.user_data["columns"] = columns
+        return ApiDialogStates.ASKED_CAD_COLUMN
+
+
+async def api_asked_cad_column(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    text = update.callback_query.data
+    if text in letters_keyboard:
+        columns = context.user_data["columns"]
+
+        columns['cad_id'] = text[0]
+        await delete_previous_column(context)
+
+        message = await update.effective_message.reply_text(f"Кадастровый номер: {text}")
+        context.user_data["previous_column"].append(message)
+
+        markup = make_letters_keyboard(columns)
+
+        message = await update.effective_message.reply_text("Укажите номер колонки с ФИО собственников",
+                                                            reply_markup=markup)
+        context.user_data["previous_column"].append(message)
+        context.user_data["columns"] = columns
+        return ApiDialogStates.ASKED_NAMES_COLUMN
+
+async def api_asked_names_column(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # (если в ячейке нет пробелов, то "укажите дополнительные колонки для Имени и Отчества (через запятую)")
+    await update.callback_query.answer()
+
+    text = update.callback_query.data
+    if text in letters_keyboard:
+        columns = context.user_data["columns"]
+
+        columns['owner'] = text[0]
+
+        await delete_previous_column(context)
+
+        message = await update.effective_message.reply_text(f"ФИО собственников: {text}")
+        context.user_data["previous_column"].append(message)
+
+        markup = make_letters_keyboard(columns)
+
+        # send the same with update.effective_message.reply_text
+        message = await update.effective_message.reply_text(
+            "Укажите номер колонки с Видом, № и датой госрегистрации:",
+            reply_markup=markup)
+
+        context.user_data["previous_column"].append(message)
+        context.user_data["columns"] = columns
+        return ApiDialogStates.ASKED_REG_COLUMN
+
+
+async def api_asked_reg_column(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    text = update.callback_query.data
+    if text in letters_keyboard:
+        columns = context.user_data["columns"]
+
+        columns['registred'] = text[0]
+        await delete_previous_column(context)
+        message = await update.effective_message.reply_text(f"Вид, № и датой госрегистрации: {text}")
+        context.user_data["previous_column"].append(message)
+
+        markup = make_letters_keyboard(columns, skip_button=True)
+
+        # send the same with update.effective_message.reply_text
+        message = await update.effective_message.reply_text(
+            "Укажите номер колонки с № и датой выписки ЕГРН",
+            reply_markup=markup)
+
+        context.user_data["previous_column"].append(message)
+        context.user_data["columns"] = columns
+        return ApiDialogStates.ASKED_EXTRACT_COLUMN
+
+
+async def api_asked_extract_column(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Введите или укажите номер колонки с указанием доли в помещении:
+    await update.callback_query.answer()
+
+    text = update.callback_query.data
+    if text in letters_keyboard:
+        columns = context.user_data["columns"]
+
+        columns['extract'] = text[0]
+        await delete_previous_column(context)
+
+        message = await update.effective_message.reply_text(f"№ и дата выписки ЕГРН: {text}")
+        context.user_data["previous_column"].append(message)
+
+        markup = make_letters_keyboard(columns)
+
+        message = await context.bot.send_message(update.callback_query.message.chat.id,
+                                                 "Укажите номер колонки с указанием доли в помещении:",
+                                                 reply_markup=markup)
+
+        context.user_data["previous_column"].append(message)
+        context.user_data["columns"] = columns
+        return ApiDialogStates.ASKED_PARTS_COLUMN
+    elif text == "0":
+        columns = context.user_data["columns"]
+
+        markup = make_letters_keyboard(columns)
+
+        await delete_previous_column(context)
+
+        message = await context.bot.send_message(update.callback_query.message.chat.id,
+                                                 "Укажите номер колонки с указанием доли в помещении:",
+                                                 reply_markup=markup)
+        context.user_data["previous_column"].append(message)
+        return ApiDialogStates.ASKED_PARTS_COLUMN
+
+
+async def api_asked_parts_column(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    text = update.callback_query.data
+    if text in letters_keyboard:
+        columns = context.user_data["columns"]
+
+        columns['part'] = text[0]
+        await delete_previous_column(context)
+
+        request = await request_service.get_request(context.user_data["request_id"])
+
+        registry_file = request.registry_filename
+
+        owners_file = client_server_api.get_request(request.id)
+        owners_filename = f'files/{request.cadnum}.xlsx'
+        with open(owners_filename, 'wb') as file:
+            file.write(owners_file)
+
+        registry_file = join_owners_and_registry(registry_file, owners_file, columns)
+
+        await context.bot.send_document(update.callback_query.message.chat.id, registry_file,
+                                        reply_markup=main_keyboard)
+        await delete_messages(context)
+        await api_confirm_registry(update, context)
+
+
 def get_application():
     # persistence_input = PersistenceInput(bot_data=True, user_data=True, chat_data=True)
     # persistence = PicklePersistence('bot/bot_data.pickle', store_data=persistence_input, update_interval=1)
     # app = ApplicationBuilder().token(token).persistence(persistence).build()
+
+    session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+    middleware = Middleware(
+        [
+            SessionMiddleware(session_maker),
+            UserMiddleware(),
+        ],
+    )
 
     app = ApplicationBuilder().token(token).build()
 
@@ -484,5 +842,56 @@ def get_application():
     )
 
     app.add_handler(conversation_handler)
+
+    api_conversation_handler_r1r7 = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(pattern="r1r7_start_", callback=api_start),
+        ],
+        states={
+            ApiDialogStates.ASKED_EXTRACT: [MessageHandler(filters=Document.ALL, callback=api_asked_extract)],
+            ApiDialogStates.CONFIRM_R1R7: [
+                CallbackQueryHandler(pattern="r1r7_confirm_", callback=api_confirm_r1r7),
+                CallbackQueryHandler(pattern="r1r7_edit_", callback=api_ask_edit_r1r7)
+            ],
+            ApiDialogStates.EDIT_R1R7: [MessageHandler(filters=Document.ALL, callback=api_edit_r1r7)],
+        },
+        fallbacks=[CommandHandler('cancel', cancel)],
+        # persistent=True,
+        # name="main_dialog",
+    )
+
+    app.add_handler(api_conversation_handler_r1r7)
+
+    api_conversation_handler_registry = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(pattern="registry_confirm_", callback=api_confirm_registry),
+            CallbackQueryHandler(pattern="registry_edit_", callback=api_ask_edit_registry),
+            CallbackQueryHandler(pattern="registry_insert_owners_", callback=api_ask_insert_owners),
+        ],
+        states={
+            ApiDialogStates.EDIT_REGISTRY: [
+                MessageHandler(filters=Document.ALL, callback=api_edit_registry)],
+            ApiDialogStates.ASKED_CAD_COLUMN: [MessageHandler(filters=TEXT & ~COMMAND, callback=api_asked_cad_column)],
+            ApiDialogStates.ASKED_NAMES_COLUMN: [
+                MessageHandler(filters=TEXT & ~COMMAND, callback=api_asked_names_column)],
+            ApiDialogStates.ASKED_REG_COLUMN: [MessageHandler(filters=TEXT & ~COMMAND, callback=api_asked_reg_column)],
+            ApiDialogStates.ASKED_EXTRACT_COLUMN: [
+                MessageHandler(filters=TEXT & ~COMMAND, callback=api_asked_extract_column)],
+            ApiDialogStates.ASKED_PARTS_COLUMN: [
+                MessageHandler(filters=TEXT & ~COMMAND, callback=api_asked_parts_column)],
+            ApiDialogStates.CONFIRM_REGISTRY: [
+                CallbackQueryHandler(pattern="registry_confirm_", callback=api_confirm_registry),
+                CallbackQueryHandler(pattern="registry_edit_", callback=api_ask_edit_registry),
+            ],
+        },
+
+        fallbacks=[CommandHandler('cancel', cancel)],
+        # persistent=True,
+        # name="main_dialog",
+    )
+
+    app.add_handler(api_conversation_handler_registry)
+
+    middleware.attach_to_application(app)
 
     return app

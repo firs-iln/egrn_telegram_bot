@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DB_URI: SecretStr
     POSTGRES_PASSWORD: SecretStr
     ANTICAPTCHA_API_KEY: str
+    MKD_CLIENT_HOST: str
 
     class Config:
         env_file = '.env'

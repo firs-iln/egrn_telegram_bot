@@ -101,7 +101,7 @@ def make_register_file(src, order_id: int = 10002):
     areas_by_row = {}
     row_id = 2
 
-    res = f'bot/files/xlsx/{order_id}_Реестр_{address}.xlsx'
+    res = f'files/{order_id}_Реестр_{address}.xlsx'
 
     # print(*rooms.items(), sep="\n")
 
@@ -149,7 +149,7 @@ def make_register_file(src, order_id: int = 10002):
         #     area_to_return = find_property(room_info, 'Площадь, кв.м', 'Категория земель')
         area_to_return = find_property(room_info, 'Площадь, кв.м', 'Назначение')
 
-        area = area_to_return.replace('.', ',')
+        area = float(area_to_return.replace(',', '.'))
         formal_area_cell = ws_rooms.cell(row=row_id, column=4)
         formal_area_cell.value = area
         real_area_cell = ws_rooms.cell(row=row_id, column=8)
@@ -278,9 +278,9 @@ def make_registry_sheet(wb: Workbook, src: str, ws_rooms: Worksheet, ws_registry
             ws_registry.cell(row=row_id, column=1).value = status
             ws_registry.cell(row=row_id, column=2).value = cad_id
             ws_registry.cell(row=row_id, column=3).value = number
-            ws_registry.cell(row=row_id, column=4).value = area
+            ws_registry.cell(row=row_id, column=4).value = float(area)
             if status not in ('НЖ', 'ОИ'):
-                ws_registry.cell(row=row_id, column=17).value = area
+                ws_registry.cell(row=row_id, column=17).value = float(area)
 
             prop = find_property(room_info,
                                  'Вид, номер и дата государственной регистрации права',

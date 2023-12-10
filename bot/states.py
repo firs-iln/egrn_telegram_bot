@@ -15,3 +15,20 @@ class MainDialogStates(Enum):
     ASKED_EXTRACT = 'asked_extract'
     ASKED_PARTS = 'asked_parts'
     WAIT = 'wait'
+
+
+class ApiDialogStates:
+    ASKED_EXTRACT = 'asked_extract'
+    CONFIRM_R1R7 = 'confirm_r1r7'
+    EDIT_R1R7 = 'edit_r1r7'
+    CONFIRMED_R1R7 = 'confirmed_r1r7'
+
+    CONFIRM_REGISTRY = 'confirm_registry'
+    EDIT_REGISTRY = 'edit_registry'
+    CONFIRMED_REGISTRY = 'confirmed_registry'
+
+    ASKED_CAD_COLUMN = 'asked_cad_column'
+    ASKED_NAMES_COLUMN = 'asked_names_column'
+    ASKED_REG_COLUMN = 'asked_reg_column'
+    ASKED_EXTRACT_COLUMN = 'asked_extract_column'
+    ASKED_PARTS_COLUMN = 'asked_parts_column'

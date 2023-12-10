@@ -12,7 +12,7 @@ async def create_request(session: AsyncSession, request: RequestCreate):
     return request
 
 
-async def get_request(session: AsyncSession, request_id: int):
+async def get_request(session: AsyncSession, request_id: int) -> Request:
     stmt = select(Request).filter(Request.id == request_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import re
+from typing import Tuple, List, Any
 
 from pdfplumber.page import Page
 from pdfplumber import open as pdfopen
 from itertools import groupby, count
 from zipfile import ZipFile
-from collections import OrderedDict
+from collections import OrderedDict, _OrderedDictValuesView
 import openpyxl
 
 
@@ -118,7 +119,7 @@ def get_floor(page: Page) -> str:
     return floor if floor != '(этажей):' else 'б/н'
 
 
-def _floors(pages: list[Page]) -> str:
+def _floors(pages: list[Page]) -> tuple[str, _OrderedDictValuesView[str, list[Any]]]:
     def _str():
         res = ''
         for key, value in pages_by_floor.items():
@@ -147,10 +148,12 @@ def _floors(pages: list[Page]) -> str:
 
     pages_by_floor = OrderedDict(sorted(pages_by_floor.items(), key=lambda x: x[0]))
 
-    return _name + _str()
+    return _name + _str(), list(pages_by_floor.values())
+
+# def get_pages_numbers_with_pics(filename)
 
 
-def floors(filename: str) -> str:
+def floors(filename: str) -> tuple[str, Any]:
     with pdfopen(filename) as pdffile:
         return _floors(pdffile.pages)
 

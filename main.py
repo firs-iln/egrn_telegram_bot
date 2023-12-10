@@ -2,7 +2,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
-# from api.routes import root_router
+from api.routes import root_router
 # from config import config
 from logging import getLogger
 from bot import telegram_app
@@ -29,7 +29,7 @@ async def lifespan(_) -> AsyncGenerator[None, None]:
 
 def build_app() -> FastAPI:
     fast_api_app = FastAPI(lifespan=lifespan)
-    # fast_api_app.include_router(root_router)
+    fast_api_app.include_router(root_router)
     return fast_api_app
 
 
