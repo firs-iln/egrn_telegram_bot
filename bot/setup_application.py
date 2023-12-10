@@ -566,7 +566,7 @@ async def api_confirm_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await client_server_api.post_request(request.order_id, 'r1r7_is_ready')
 
     await delete_messages(context)
-    return ApiDialogStates.CONFIRMED_R1R7
+    return ConversationHandler.END
 
 
 async def api_ask_edit_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -591,18 +591,26 @@ async def api_edit_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await api_confirm_r1r7(update, context)
 
+    return ConversationHandler.END
+
 
 async def api_confirm_registry(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.effective_message.reply_text("Данные подтверждены")
-
-    request_id = int(update.callback_query.data.split("_")[-1])
+    if update.callback_query:
+        await update.callback_query.answer(
+            text="Данные подтверждены",
+            show_alert=True
+        )
+        request_id = int(update.callback_query.data.split("_")[-1])
+    else:
+        await update.effective_message.reply_text("Данные подтверждены")
+        request_id = context.user_data["request_id"]
 
     request = await request_service.get_request(session=context.session, request_id=request_id)
 
     await client_server_api.post_request(request.order_id, 'registry_is_ready')
 
     await delete_messages(context)
-    return ApiDialogStates.CONFIRMED_REGISTRY
+    return ConversationHandler.END
 
 
 async def api_ask_edit_registry(update: Update, context: ContextTypes.DEFAULT_TYPE):
