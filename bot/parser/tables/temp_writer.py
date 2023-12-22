@@ -51,6 +51,21 @@ def write_first_and_seventh(addr: str,
     resize_columns(ws1)
     resize_columns(ws7)
     print("proceed")
+
+    ws1['B7'] = float(ws1['B7'].value)
+    ws1['B14'] = float(ws1['B14'].value)
+
+    for cell in ws7['G'][1:]:
+        cell.value = float(cell.value)
+
+    al = Alignment(horizontal="left", vertical="top")
+    for row in ws1.iter_rows():
+        for cell in row:
+            cell.alignment = al
+    for row in ws7.iter_rows():
+        for cell in row:
+            cell.alignment = al
+
     res = f'bot/files/xlsx/{cad_id}_{addr}.xlsx'
     # os.system(f'touch "{res}"')
     wb.save(res)

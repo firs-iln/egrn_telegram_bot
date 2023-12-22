@@ -69,6 +69,10 @@ def process_pdf(src):
                     else:
                         seventh_div.extend(tables[3])
 
+        for row in first_div:
+            if row[0] == 'Получатель выписки:':
+                row[1] = ''
+
         return addr, cad, first_div, seventh_div
 
 

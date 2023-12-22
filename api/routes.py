@@ -13,6 +13,7 @@ from schemas.request import RequestCreate, RequestResponse
 from schemas.user import UserCreate, UserResponse
 
 from bot import telegram_app
+from bot.parser.parse_website.dadata_rep import dadata
 from sqlalchemy.ext.asyncio import AsyncSession
 import io
 
@@ -33,6 +34,36 @@ root_router = APIRouter(
 bot: Bot = telegram_app.bot
 
 
+def retry(times, exceptions):
+    """
+    Retry Decorator
+    Retries the wrapped function/method `times` times if the exceptions listed
+    in ``exceptions`` are thrown
+    :param times: The number of times to repeat the wrapped function/method
+    :type times: Int
+    :param exceptions: Lists of exceptions that trigger a retry attempt
+    :type exceptions: Tuple of Exceptions
+    """
+
+    def decorator(func):
+        def new_fn(*args, **kwargs):
+            attempt = 0
+            while attempt < times:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions:
+                    print(
+                        'Exception thrown when attempting to run %s, attempt '
+                        '%d of %d' % (func, attempt, times)
+                    )
+                    attempt += 1
+            return func(*args, **kwargs)
+
+        return new_fn
+
+    return decorator
+
+
 @root_router.post("/")
 async def create_request(
         request_create: RequestCreate,
@@ -45,11 +76,16 @@ async def create_request(
     admin = await user_service.get_admins(session)
     admin = admin[0]
 
+    address = dadata.get_clean_data_by_cadastral_number(request_create.cadnum)
+
     markup = InlineKeyboardMarkup([[InlineKeyboardButton("Выписка МКД", callback_data=f"r1r7_start_{request.id}")]])
 
     await bot.send_message(
         chat_id=admin.id,
-        text=f"Поступила новая заявка на кадастровый номер {request_create.cadnum}.\n",
+        text=f"Новый заказ на РеестрМКД " + ("(с ФИО)" if request_create.fio_is_provided else "(без ФИО)") + "\n" + \
+             f"Заказ № {request_create.order_id}\n" + \
+             f"Кадномер: {request_create.cadnum}\n" + \
+             f"Адрес: {address.result}",
         reply_markup=markup,
     )
 
@@ -57,18 +93,19 @@ async def create_request(
 
 
 async def process_file(session: AsyncSession, request_id: int):
+    @retry(2, [Exception])
+    async def inner(src):
+        parser_obj = Parser(src)
+        await parser_obj.process_objects()
+
     request = await request_service.get_request(session, request_id)
 
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
 
     src = request.r1r7_filename
-    try:
-        parser_obj = Parser(src)
-        await parser_obj.process_objects()
-    except Exception as e:
-        parser_obj = Parser(src)
-        await parser_obj.process_objects()
+
+    await inner(src)
 
     doc, area = make_register_file(src)
     request.registry_filename = doc

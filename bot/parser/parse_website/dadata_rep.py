@@ -111,6 +111,12 @@ class DadataRepository:
         response = self.dadata.clean("address", address)
         return DadataAddress(**response)
 
+    def get_clean_data_by_cadastral_number(self, cadastral_number: str) -> DadataAddress:
+        response = self.dadata.find_by_id("address", cadastral_number, 1)
+        if not response:
+            return DadataAddress()
+        return DadataAddress(**(response[0].get('data', {})), result=response[0].get('value', ''))
+
 
 API_KEY = os.environ.get('DADATA_API_KEY')
 SECRET_KEY = os.environ.get('DADATA_SECRET_KEY')

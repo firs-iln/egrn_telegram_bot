@@ -3,7 +3,7 @@ import os
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles.borders import Border, Side
-from openpyxl.styles import Font
+from openpyxl.styles import Font, Alignment
 import re
 from openpyxl.cell.text import InlineFont
 from openpyxl.cell.rich_text import TextBlock, CellRichText
@@ -116,7 +116,7 @@ def make_register_file(src, order_id: int = 10002):
                 status = "ЛК"
             else:
                 status = statuses.get(purpose.lower(), '')
-            number = re.split(r'кв\.|пом\.|д\.|дом|квартира|кв\. ', address)[-1]
+            number = re.split(r'кв\.|пом\.|д\.|дом|квартира|кв\. ', address)[-1].strip()
             number_cell = ws_rooms.cell(row=row_id, column=3)
             number_cell.value = number
             if 'б/н' in number:
@@ -131,6 +131,8 @@ def make_register_file(src, order_id: int = 10002):
             status = 'ЗУ'
         status_cell = ws_rooms.cell(row=row_id, column=1)
         status_cell.value = status
+
+        room_type_cell = ws_rooms.cell(row=row_id, column=11)
 
         cad_id = find_property(room_info, "Кадастровый номер", "Дата присвоения кадастрового номера")
         cad_cell = ws_rooms.cell(row=row_id, column=5)
@@ -187,8 +189,20 @@ def make_register_file(src, order_id: int = 10002):
                 prop = prop.split('Общая долевая собственность')
                 regs = list(map(lambda x: ["Общая долевая собственность", *x.split("от")], prop[1:]))
                 ws_rooms.cell(row=row_id, column=9).value = f'П+{len(regs)}'
-            elif 'Собственность' in prop:
+            elif 'собственность' in prop.lower():
                 ws_rooms.cell(row=row_id, column=9).value = f'П+{1}'
+
+        object_type = find_property(room_info, 'Вид объекта недвижимости', 'Статус объекта')
+        object_goal = find_property(room_info, 'Назначение', 'Этаж')
+        object_type_value = ''
+
+        if object_type == 'Земельный участок':
+            object_type_value = object_type
+        else:
+            object_type_value = object_goal
+
+        if object_type_value:
+            ws_rooms.cell(row=row_id, column=11).value = object_type_value
 
         wb.save(res)
 
@@ -224,6 +238,11 @@ def make_register_file(src, order_id: int = 10002):
     for row in ws_registry.iter_rows(min_row=2):
         for cell in row:
             cell._style = base_style
+
+    al = Alignment(horizontal="left", vertical="top")
+    for row in ws_registry.iter_rows(min_row=2):
+        for cell in row:
+            cell.alignment = al
 
     for i, row in enumerate(ws_rooms.iter_rows(min_row=2), start=2):
         ws_rooms.row_dimensions[i].height = 12
@@ -272,7 +291,7 @@ def make_registry_sheet(wb: Workbook, src: str, ws_rooms: Worksheet, ws_registry
             part = row[5].value
             owner_type_cell = ws_registry.cell(row=row_id, column=10)
 
-            owner_type_cell.value = 'ФЛ' if status in ('КВ', 'ММ') else 'ОИ'
+            owner_type_cell.value = 'ФЛ' if status != 'ОИ' else status
             # print(status, owner_type_cell.value)
             # print(f'room {row_id} {status} {cad_id} {number} {area}')
             ws_registry.cell(row=row_id, column=1).value = status
@@ -310,7 +329,7 @@ def make_registry_sheet(wb: Workbook, src: str, ws_rooms: Worksheet, ws_registry
 
             ws_registry.cell(row=row_id, column=5).value = 1
             ws_registry.cell(row=row_id, column=6).value = 1
-            if status not in ('НЖ', 'ОИ'):
+            if status != 'ОИ':
                 ws_registry.cell(row=row_id, column=18).value = part
 
             row_id += 1

@@ -2,6 +2,8 @@ import os
 import re
 import zipfile
 
+from bot.handlers.error_handler import send_stacktrace_to_tg_chat
+
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, \
     ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ApplicationBuilder, CommandHandler, MessageHandler, ConversationHandler, \
@@ -40,6 +42,8 @@ logging.basicConfig(
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
+logger = logging.getLogger(__name__)
+
 token = os.environ.get("TOKEN")
 order_id = 0
 
@@ -75,12 +79,12 @@ async def egrn_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file = await context.bot.get_file(update.message.document)
 
-    received_files_path = 'bot/files/received/'
+    path_prefix_for_received_files = 'bot/files/received/'
 
     message_to_reply = update.message
 
     document_name = update.message.document.file_name
-    src = received_files_path + document_name
+    src = path_prefix_for_received_files + document_name
     await file.download_to_drive(src)
 
     if not document_name.endswith(".pdf"):  # file format check
@@ -94,16 +98,16 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 z = zipfile.ZipFile(zip)
                 for member in z.namelist():
                     if member.split('.')[-1] == 'pdf':
-                        z.extract(member=member, path=received_files_path)
-                        new_name = find_info(received_files_path + member)
+                        z.extract(member=member, path=path_prefix_for_received_files)
+                        new_name = find_info(path_prefix_for_received_files + member)
                         new_name = ' '.join(new_name.values()) + ".pdf"
-                        src = received_files_path + new_name
-                        os.rename(received_files_path + member, src)
+                        src = path_prefix_for_received_files + new_name
+                        os.rename(path_prefix_for_received_files + member, src)
                         message_to_reply = await context.bot.send_document(update.message.chat.id, src)
                         await update.message.delete()
                         break
 
-    if not check_pdf_to_be_valid_doc(src):  # file contains some title
+    if not check_pdf_to_be_valid_doc(src):  # file contains specific title
         message = await update.message.reply_text("Неверный формат файла, попробуйте ещё раз")
         context.user_data["messages_to_delete"].extend([message, update.message])
         os.remove(src)
@@ -124,17 +128,20 @@ async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     cad_id, addr = get_addr_and_cad_id(doc)
 
+    filename = f"ЕГРН {cad_id} {addr}".replace('/', '_').replace(':', '') + ".xlsx"
+
     reply = f'''МКД: {addr}\nКадастровый номер: {cad_id}\n\nСоздать файл РеестрМКД с данными из онлайн-справки Росреестра?'''
 
     pics = InlineKeyboardButton(text="Планы", callback_data="plans")
     makefile = InlineKeyboardButton(text="РеестрМКД", callback_data="makefile")
     markup = InlineKeyboardMarkup([[pics, makefile]])
 
-    await message_to_reply.reply_document(doc, quote=True)
+    await message_to_reply.reply_document(doc, quote=True, filename=filename)
 
     await update.effective_message.reply_text(text=reply, reply_markup=markup)
 
     await delete_messages(context)
+    await delete_message_or_skip(update.effective_message)
     return MainDialogStates.CHOOSE_OPTION
 
 
@@ -153,6 +160,7 @@ async def online_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await parser_obj.process_objects()
         except Exception as e:
             message = await update.effective_message.reply_text(text="Ошибка при обработке файла")
+            logger.error(e)
             context.user_data["messages_to_delete"].append(message)
             parser_obj = Parser(src)
             await parser_obj.process_objects()
@@ -469,10 +477,11 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def api_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
     request_id = int(update.callback_query.data.split('_')[-1])
     context.user_data["request_id"] = request_id
-    context.user_data["messages_to_delete"] = []
-    await update.effective_message.reply_text("Вставьте .pdf файл выписки")
+    message = await update.effective_message.reply_text("Вставьте .pdf файл выписки")
+    context.user_data["messages_to_delete"] = [update.effective_message, message]
     return ApiDialogStates.ASKED_EXTRACT
 
 
@@ -549,23 +558,35 @@ async def api_asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     confirm_button = InlineKeyboardButton(text="Подтвердить", callback_data=f"r1r7_confirm_{request_id}")
     markup = InlineKeyboardMarkup([[edit_button, confirm_button]])
 
-    await message_to_reply.reply_document(doc, quote=True)
+    filename = f"ЕГРН {cad_id} {addr}".replace('/', '_').replace(':', '') + ".pdf"
 
-    await update.effective_message.reply_text(text=reply, reply_markup=markup)
+    document_message = await message_to_reply.reply_document(doc, quote=True, filename=filename)
+
+    text_message = await update.effective_message.reply_text(text=reply, reply_markup=markup)
 
     await delete_messages(context)
+    await delete_message_or_skip(update.message)
+
+    context.user_data["messages_to_delete"].extend([document_message, text_message])
+
     return ApiDialogStates.CONFIRM_R1R7
 
 
 async def api_confirm_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.effective_message.reply_text("Данные подтверждены")
-
     request_id = context.user_data["request_id"]
     request = await request_service.get_request(session=context.session, request_id=request_id)
 
     await client_server_api.post_request(request.order_id, 'r1r7_is_ready')
 
     await delete_messages(context)
+
+    await update.callback_query.answer(
+        "Данные подтверждены. Отправлено в клиентского бота",
+        show_alert=True,
+    )
+
+    await delete_messages(context)
+
     return ConversationHandler.END
 
 
@@ -899,6 +920,8 @@ def get_application():
     )
 
     app.add_handler(api_conversation_handler_registry)
+
+    app.add_error_handler(send_stacktrace_to_tg_chat)
 
     middleware.attach_to_application(app)
 
