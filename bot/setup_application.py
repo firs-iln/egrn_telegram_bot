@@ -552,13 +552,14 @@ async def api_asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.session.commit()
 
     cad_id, addr = get_addr_and_cad_id(doc)
-    reply = f'''МКД: {addr}\nКадастровый номер: {cad_id}\n\nПроверьте правильность данных. Если данные неверны, нажмите "Редактировать", если верны - "Подтвердить"'''
+    reply = (f'МКД: {addr}\nКадастровый номер: {cad_id}\n\n'
+             'Проверьте правильность данных. Если данные неверны, нажмите "Редактировать", если верны - "Подтвердить"')
 
     edit_button = InlineKeyboardButton(text="Редактировать", callback_data=f"r1r7_edit_{request_id}")
     confirm_button = InlineKeyboardButton(text="Подтвердить", callback_data=f"r1r7_confirm_{request_id}")
     markup = InlineKeyboardMarkup([[edit_button, confirm_button]])
 
-    filename = f"ЕГРН {cad_id} {addr}".replace('/', '_').replace(':', '') + ".pdf"
+    filename = f"ЕГРН {cad_id} {addr}".replace('/', '_').replace(':', '') + ".xlsx"
 
     document_message = await message_to_reply.reply_document(doc, quote=True, filename=filename)
 
@@ -576,7 +577,21 @@ async def api_confirm_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     request_id = context.user_data["request_id"]
     request = await request_service.get_request(session=context.session, request_id=request_id)
 
-    await client_server_api.post_request(request.order_id, 'r1r7_is_ready')
+    r1r7_filename = request.r1r7_filename
+    room_rows_count = get_num_of_rows_in_xlsx(r1r7_filename, 'Раздел 7')
+
+    fio_rows_count = 0
+
+    if request.fio_is_provided:
+        fio_file = client_server_api.get_fio_file(request.order_id)
+        fio_rows_count = get_num_of_rows_in_xlsx(fio_file)
+
+    await client_server_api.post_request(
+        request.order_id,
+        'r1r7_is_ready',
+        room_rows_count=room_rows_count,
+        fio_rows_count=fio_rows_count
+    )
 
     await delete_messages(context)
 
@@ -618,7 +633,7 @@ async def api_edit_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def api_confirm_registry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
         await update.callback_query.answer(
-            text="Данные подтверждены",
+            text="Результат отправлен",
             show_alert=True
         )
         request_id = int(update.callback_query.data.split("_")[-1])
@@ -628,7 +643,7 @@ async def api_confirm_registry(update: Update, context: ContextTypes.DEFAULT_TYP
 
     request = await request_service.get_request(session=context.session, request_id=request_id)
 
-    await client_server_api.post_request(request.order_id, 'registry_is_ready')
+    await client_server_api.post_request(request.order_id, 'registry_is_ready', total_area=123.45)
 
     await delete_messages(context)
     return ConversationHandler.END
@@ -706,6 +721,7 @@ async def api_asked_cad_column(update: Update, context: ContextTypes.DEFAULT_TYP
         context.user_data["previous_column"].append(message)
         context.user_data["columns"] = columns
         return ApiDialogStates.ASKED_NAMES_COLUMN
+
 
 async def api_asked_names_column(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # (если в ячейке нет пробелов, то "укажите дополнительные колонки для Имени и Отчества (через запятую)")
@@ -820,6 +836,15 @@ async def api_asked_parts_column(update: Update, context: ContextTypes.DEFAULT_T
                                         reply_markup=main_keyboard)
         await delete_messages(context)
         await api_confirm_registry(update, context)
+
+
+def get_num_of_rows_in_xlsx(filename: str, sheet_name: str = None, count_first: bool = False) -> int:
+    from openpyxl import load_workbook, Workbook
+    from openpyxl.worksheet.worksheet import Worksheet
+
+    wb: Workbook = load_workbook(filename, read_only=True, data_only=True)
+    ws: Worksheet = wb.active if sheet_name is None else wb[sheet_name]
+    return ws.max_row if count_first else ws.max_row - 1
 
 
 def get_application():

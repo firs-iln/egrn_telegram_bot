@@ -20,6 +20,9 @@ class Request(Base, AsyncAttrs):
     fio_is_provided = Column(Boolean, nullable=False, default=False)
     r1r7_filename = Column(String, nullable=True)
     registry_filename = Column(String, nullable=True)
+    total_area = Column(Integer, nullable=True)
+    room_rows_count = Column(Integer, nullable=True)
+    fio_rows_count = Column(Integer, default=0, nullable=True)
 
 
 class User(AsyncAttrs, Base):

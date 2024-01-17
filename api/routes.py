@@ -78,7 +78,14 @@ async def create_request(
 
     address = dadata.get_clean_data_by_cadastral_number(request_create.cadnum)
 
-    markup = InlineKeyboardMarkup([[InlineKeyboardButton("Выписка МКД", callback_data=f"r1r7_start_{request.id}")]])
+    markup = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Из API", callback_data=f"r1r7_from_api_{request.id}"),
+                InlineKeyboardButton("Выписка МКД", callback_data=f"r1r7_start_{request.id}")
+            ]
+        ]
+    )
 
     await bot.send_message(
         chat_id=admin.id,
@@ -109,6 +116,10 @@ async def process_file(session: AsyncSession, request_id: int):
 
     doc, area = make_register_file(src)
     request.registry_filename = doc
+
+    request.total_area = area
+
+    await session.commit()
 
     admin = await user_service.get_admins(session)
     admin = admin[0]
