@@ -69,6 +69,7 @@ def write_first_and_seventh(addr: str,
     res = f'bot/files/xlsx/{cad_id}_{addr}.xlsx'
     # os.system(f'touch "{res}"')
     wb.save(res)
+    wb.close()
     return res
 
 

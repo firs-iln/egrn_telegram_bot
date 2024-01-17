@@ -586,6 +586,8 @@ async def api_confirm_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fio_file = client_server_api.get_fio_file(request.order_id)
         fio_rows_count = get_num_of_rows_in_xlsx(fio_file)
 
+    print(type(fio_rows_count))
+
     await client_server_api.post_request(
         request.order_id,
         'r1r7_is_ready',

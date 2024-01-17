@@ -8,7 +8,10 @@ class ClientServerAPI:
         self.base_url = f"http://{host}/api/v1/order"
 
     async def post_request(self, order_id: str, reason: str, **kwargs) -> dict:
+        if not kwargs:
+            kwargs = dict()
         async with httpx.AsyncClient(follow_redirects=True) as client:
+            print(kwargs)
             response = await client.post(self.base_url + f"/{order_id}/callback/{reason}/", json=kwargs)
             response.raise_for_status()
             return response.json()
