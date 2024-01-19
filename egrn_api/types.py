@@ -58,3 +58,23 @@ class SearchResponse(BaseModel):
     query: str
     found: int
     results: list[SearchResponseItem] = Field(alias="list")
+
+
+class CreateRequestResponse(BaseModel):
+    order_id: str
+
+
+class CheckRequestResponse(BaseModel):
+    order_id: str
+    status: str
+    creation_dt: str
+    fgis_key_name: Optional[str] = ''
+    rr_status: Optional[str] = ''
+    rr_number: Optional[str] = ''
+    rr_sent_dt: Optional[str] = ''
+    complete: int
+
+
+class DownloadOrderResponse(BaseModel):
+    file_bytes: bytes
+    file_extension: str
