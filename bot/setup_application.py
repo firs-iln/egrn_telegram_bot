@@ -205,8 +205,9 @@ async def choose_option_registry(update: Update, context: ContextTypes.DEFAULT_T
         return MainDialogStates.CHOOSE_OPTION_REGISTRY
 
 
-letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
-letters_keyboard = ['A(1)', 'B(2)', 'C(3)', 'D(4)', 'E(5)', 'F(6)', 'G(7)', 'H(8)', 'I(9)', 'J(10)']
+letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T']
+letters_keyboard = ['A(1)', 'B(2)', 'C(3)', 'D(4)', 'E(5)', 'F(6)', 'G(7)', 'H(8)', 'I(9)', 'J(10)', 'K(11)', 'L(12)', 'M(13)', 'N(14)', 'O(15)', 'P(16)', 'Q(17)', 'R(18)', 'S(19)', 'T(20)']
+
 
 
 def make_letters_keyboard(mapping: dict[str, str], skip_button: bool = False) -> InlineKeyboardMarkup:
@@ -598,7 +599,7 @@ async def api_confirm_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_messages(context)
 
     await update.callback_query.answer(
-        "Данные подтверждены. Отправлено в клиентского бота",
+        "Данные подтверждены. Отправлено администратору.",
         show_alert=True,
     )
 
@@ -648,6 +649,9 @@ async def api_confirm_registry(update: Update, context: ContextTypes.DEFAULT_TYP
     await client_server_api.post_request(request.order_id, 'registry_is_ready', total_area=123.45)
 
     await delete_messages(context)
+
+    await update.effective_message.edit_reply_markup(None)
+
     return ConversationHandler.END
 
 
