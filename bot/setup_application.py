@@ -2,6 +2,7 @@ import os
 import re
 import zipfile
 
+
 from bot.handlers.error_handler import send_stacktrace_to_tg_chat
 
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, \
@@ -23,7 +24,9 @@ from bot.states import MainDialogStates, ApiDialogStates
 import logging
 from logging.handlers import RotatingFileHandler
 
-from bot.middlewares import SessionMiddleware, UserMiddleware, Middleware
+from bot.middlewares import SessionMiddleware, UserMiddleware, Middleware, ArqMiddleware
+
+from arq_app import init_arq_pool
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from database import engine
@@ -847,20 +850,32 @@ def get_num_of_rows_in_xlsx(filename: str, sheet_name: str = None, count_first: 
     return ws.max_row if count_first else ws.max_row - 1
 
 
+async def test_arq(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.arq_app.enqueue_job('check_egrn_request_status', update.effective_chat.id, _defer_by=60)
+
+
 def get_application():
+    async def post_init(application: Application) -> None:
+        arq_app = await init_arq_pool()
+        arq_middleware.update_arq_app(arq_app)
+        print("arq app initialized")
+
     # persistence_input = PersistenceInput(bot_data=True, user_data=True, chat_data=True)
     # persistence = PicklePersistence('bot/bot_data.pickle', store_data=persistence_input, update_interval=1)
     # app = ApplicationBuilder().token(token).persistence(persistence).build()
 
     session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    arq_middleware = ArqMiddleware()
     middleware = Middleware(
         [
             SessionMiddleware(session_maker),
             UserMiddleware(),
+            arq_middleware,
         ],
     )
 
-    app = ApplicationBuilder().token(token).build()
+    app = Application.builder().token(token).post_init(post_init).build()
 
     app.add_handler(CommandHandler('start', start))
 
@@ -945,6 +960,13 @@ def get_application():
     )
 
     app.add_handler(api_conversation_handler_registry)
+
+    app.add_handler(
+        CommandHandler(
+            'test_arq',
+            test_arq,
+        )
+    )
 
     app.add_error_handler(send_stacktrace_to_tg_chat)
 

@@ -13,6 +13,7 @@ logger = getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_) -> AsyncGenerator[None, None]:
     await telegram_app.initialize()
+    await telegram_app.post_init(telegram_app)
     await telegram_app.start()
     await telegram_app.updater.start_polling()
 

@@ -1,22 +1,22 @@
 version: "1.0"
 
 services:
-#  egrn_selenium_driver:
-#    image: selenium/standalone-chrome:3.141.59-20210607
-#    ports:
-#      - "4444:4444"
-##    --disable-dev-shm-usage
-#    restart: always
+  #  egrn_selenium_driver:
+  #    image: selenium/standalone-chrome:3.141.59-20210607
+  #    ports:
+  #      - "4444:4444"
+  ##    --disable-dev-shm-usage
+  #    restart: always
   egrn_bot:
     build:
-#      platforms:
-#        - "linux/amd64"
+      #      platforms:
+      #        - "linux/amd64"
       context: .
       dockerfile: Dockerfile
     container_name: egrn_bot
     restart: always
     command: sh -c "uvicorn main:app --port 9999 --host 0.0.0.0"
-#    command: sh -c "python main.py"
+    #    command: sh -c "python main.py"
     env_file:
       - .env
     volumes:
@@ -30,7 +30,7 @@ services:
       - "9999:9999"
   db:
     image: postgres:15
-    container_name: mkd_database
+    container_name: egrn_database
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data/
@@ -38,6 +38,32 @@ services:
       - /etc/timezone:/etc/timezone:ro
     ports:
       - "5430:5432"
+    env_file:
+      - .env
+  redis:
+    image: redis:6.2.5
+    container_name: egrn_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    #    volumes:
+    #      - redis_data:./redis_datapadeswx
+    env_file:
+      - .env
+  arq_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: egrn_worker
+    restart: always
+    command: sh -c "arq arq_app.WorkerSettings"
+  flower:
+    image: mher/flower:0.9.7
+    command: [ 'flower', '--broker=redis://redis:6379', '--port=5555' ]
+    ports:
+      - 5557:5555
+    depends_on:
+      - redis
     env_file:
       - .env
 
