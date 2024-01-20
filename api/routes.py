@@ -106,6 +106,7 @@ async def process_file(session: AsyncSession, request_id: int):
         await parser_obj.process_objects()
 
     request = await request_service.get_request(session, request_id)
+    await session.refresh(request, ["id", "fio_is_provided"])
 
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -119,28 +120,26 @@ async def process_file(session: AsyncSession, request_id: int):
 
     request.total_area = area
 
-    await session.commit()
-
     admin = await user_service.get_admins(session)
     admin = admin[0]
 
     if not request.fio_is_provided:
         markup = InlineKeyboardMarkup([[
-            InlineKeyboardButton(f"Отправить результат", callback_data=f"registry_confirm_{request.id}"),
-            InlineKeyboardButton(f"Внести изменения", callback_data=f"registry_edit_{request.id}"),
+            InlineKeyboardButton(f"Отправить результат", callback_data=f"registry_confirm_{request_id}"),
+            InlineKeyboardButton(f"Внести изменения", callback_data=f"registry_edit_{request_id}"),
         ]])
         reply = "Файл готов, отправить?"
     else:
         markup = InlineKeyboardMarkup([[
-            InlineKeyboardButton(f"Настроить колонки", callback_data=f"registry_insert_owners_{request.id}"),
-            InlineKeyboardButton(f"Внести изменения", callback_data=f"registry_edit_{request.id}"),
+            InlineKeyboardButton(f"Настроить колонки", callback_data=f"registry_insert_owners_{request_id}"),
+            InlineKeyboardButton(f"Внести изменения", callback_data=f"registry_edit_{request_id}"),
         ]])
         reply = 'Требуется внесение ФИО в файл. Нажмите Настройка, чтобы продолжить'
 
     await bot.send_document(
         chat_id=admin.id,
         document=doc,
-        caption=f"РеестрМКД по заказу {request.id}\n\nПлощадь КВ+НЖ+ММ = {area:.1f} кв.м.\n\n{reply}",
+        caption=f"РеестрМКД по заказу {request_id}\n\nПлощадь КВ+НЖ+ММ = {area:.1f} кв.м.\n\n{reply}",
         reply_markup=markup,
     )
 

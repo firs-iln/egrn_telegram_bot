@@ -28,7 +28,3 @@ def solve_captcha(captcha_src: str) -> str:
         return captcha_text
     else:
         print("task finished with error " + solver.error_code)
-
-
-if __name__ == '__main__':
-    print(PageParser().parse('66:41:0206030:2313'))

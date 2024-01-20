@@ -20,7 +20,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./migrations/versions:/code/migrations/versions
+      - ./migrations/versions:/bot/migrations/versions
       - ./logs:/bot/logs
       - ./bot/bot_data.pickle:/bot/bot/bot_data.pickle
       - ./files:/bot/files
