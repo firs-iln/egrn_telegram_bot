@@ -81,7 +81,7 @@ async def create_request(
     markup = InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton("Из API", callback_data=f"r1r7_from_api_{request.id}"),
+                InlineKeyboardButton("reestr-api", callback_data=f"r1r7_from_api_{request.id}"),
                 InlineKeyboardButton("Выписка МКД", callback_data=f"r1r7_start_{request.id}")
             ]
         ]

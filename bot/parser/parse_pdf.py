@@ -17,6 +17,10 @@ def check_pdf_to_be_valid_doc(filename):
         return pdffile.pages[0].search(pat)
 
 
+# def extract_pdf_from_zip(src):
+#
+
+
 def address(pages: list[Page]) -> tuple[str, str]:
     _name = 'Адрес'
     tables = pages[0].extract_tables()

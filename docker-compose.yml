@@ -46,8 +46,8 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
-    #    volumes:
-    #      - redis_data:./redis_datapadeswx
+    volumes:
+      - ./redis_data:/data
     env_file:
       - .env
   arq_worker:
@@ -55,6 +55,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: egrn_worker
+    volumes:
+      - ./files:/bot/files
     restart: always
     command: sh -c "arq arq_app.WorkerSettings"
   flower:

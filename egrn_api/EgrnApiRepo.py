@@ -28,12 +28,18 @@ class EGRNAPI:
             response.raise_for_status()
             return response.json()
 
-    async def _get_file(self, url: str, params: dict) -> bytes:
+    async def _get_file(self, url: str, params: dict) -> (bytes, str):
         async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url + url, params=params | self.params,
                                         headers=self.headers)
+
             response.raise_for_status()
-            return response.content
+
+            pprint.pprint(response.headers)
+
+            filename = response.headers["content-disposition"].split('filename=')[-1]
+
+            return response.content, filename
 
     async def search_cadastral_full(self, cadnum: str) -> Optional[SearchResponse]:
         url = "search/cadastrFull"
@@ -93,9 +99,9 @@ class EGRNAPI:
             "format": file_type,
         }
 
-        response = await self._get_file(url, params)
+        file_bytes, filename = await self._get_file(url, params)
 
         return DownloadOrderResponse(
-            file_bytes=response,
-            file_extension=file_type if file_type != "pdf-report" else "pdf",
+            file_bytes=file_bytes,
+            filename=filename,
         )

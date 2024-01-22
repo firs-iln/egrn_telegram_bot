@@ -9,8 +9,13 @@ class UserRolesEnum(pyEnum):
     SUPER_ADMIN = 'super_admin'
 
 
-class ClientTypeEnum(pyEnum):
-    """Client type enum."""
+class RequestStatusEnum(pyEnum):
+    """Request statuses."""
 
-    INDIVIDUAL = 'individual'
-    LEGAL = 'legal'
+    CREATED = 'created'
+    WAITINGFOREXTRACT = 'waiting_for_extract'
+    EXTRACTDONE = 'extract_done'
+    R1R7DONE = 'r1r7_done'
+    WAITINGFORPROCESSING = 'waiting_for_processing'
+    REESTRDONE = 'reestr_done'
+    CANCELED = 'canceled'

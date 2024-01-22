@@ -2,7 +2,6 @@ import os
 import re
 import zipfile
 
-
 from bot.handlers.error_handler import send_stacktrace_to_tg_chat
 
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, \
@@ -34,6 +33,12 @@ from database import engine
 from crud import request as request_service
 
 from client_server_api import client_server_api
+
+from egrn_api import api as egrn_requests_api
+
+from database.enums import RequestStatusEnum
+
+received_files_path = 'files/received/'
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -209,8 +214,8 @@ async def choose_option_registry(update: Update, context: ContextTypes.DEFAULT_T
 
 
 letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T']
-letters_keyboard = ['A(1)', 'B(2)', 'C(3)', 'D(4)', 'E(5)', 'F(6)', 'G(7)', 'H(8)', 'I(9)', 'J(10)', 'K(11)', 'L(12)', 'M(13)', 'N(14)', 'O(15)', 'P(16)', 'Q(17)', 'R(18)', 'S(19)', 'T(20)']
-
+letters_keyboard = ['A(1)', 'B(2)', 'C(3)', 'D(4)', 'E(5)', 'F(6)', 'G(7)', 'H(8)', 'I(9)', 'J(10)', 'K(11)', 'L(12)',
+                    'M(13)', 'N(14)', 'O(15)', 'P(16)', 'Q(17)', 'R(18)', 'S(19)', 'T(20)']
 
 
 def make_letters_keyboard(mapping: dict[str, str], skip_button: bool = False) -> InlineKeyboardMarkup:
@@ -484,18 +489,22 @@ async def api_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     request_id = int(update.callback_query.data.split('_')[-1])
     context.user_data["request_id"] = request_id
-    message = await update.effective_message.reply_text("Вставьте .pdf файл выписки")
-    context.user_data["messages_to_delete"] = [update.effective_message, message]
-    return ApiDialogStates.ASKED_EXTRACT
+    request = await request_service.get_request(session=context.session, request_id=request_id)
+    if request.status == RequestStatusEnum.CREATED:
+        message = await update.effective_message.reply_text("Вставьте .pdf файл выписки")
+        context.user_data["messages_to_delete"] = [update.effective_message, message]
+        return ApiDialogStates.ASKED_EXTRACT
+    else:
+        src = received_files_path + request.extract_filename
+        context.user_data["src"] = src
+        context.user_data["cad"] = request.cadnum
+        context.user_data["messages_to_delete"] = [update.effective_message]
+        return await create_r1r7(update, context)
 
 
 # noinspection DuplicatedCode
 async def api_asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file = await context.bot.get_file(update.message.document)
-
-    received_files_path = 'bot/files/received/'
-
-    message_to_reply = update.message
 
     document_name = update.message.document.file_name
     src = received_files_path + document_name
@@ -517,7 +526,7 @@ async def api_asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         new_name = ' '.join(new_name.values()) + ".pdf"
                         src = received_files_path + new_name
                         os.rename(received_files_path + member, src)
-                        message_to_reply = await context.bot.send_document(update.message.chat.id, src)
+                        await context.bot.send_document(update.message.chat.id, src)
                         await update.message.delete()
                         break
 
@@ -543,6 +552,15 @@ async def api_asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["src"] = src
 
+    return await create_r1r7(update, context)
+
+
+async def create_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    request_id = context.user_data["request_id"]
+    request = await request_service.get_request(session=context.session, request_id=request_id)
+
+    src = context.user_data["src"]
+
     tmp_msg = await update.effective_message.reply_text(
         "Обработка начата, ожидайте..."
     )
@@ -565,7 +583,7 @@ async def api_asked_extract(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     filename = f"ЕГРН {cad_id} {addr}".replace('/', '_').replace(':', '') + ".xlsx"
 
-    document_message = await message_to_reply.reply_document(doc, quote=True, filename=filename)
+    document_message = await update.effective_message.reply_document(doc, filename=filename)
 
     text_message = await update.effective_message.reply_text(text=reply, reply_markup=markup)
 
@@ -847,6 +865,33 @@ async def api_asked_parts_column(update: Update, context: ContextTypes.DEFAULT_T
         await api_confirm_registry(update, context)
 
 
+async def get_extract_for_r1r7_from_api(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    request_id = int(update.callback_query.data.split('_')[-1])
+    request = await request_service.get_request(session=context.session, request_id=request_id)
+
+    try:
+        order = await egrn_requests_api.create_order(request.cadnum)
+    except Exception as e:
+        logger.error(e)
+        await update.callback_query.answer("Ошибка при создании заказа", show_alert=True)
+        return
+
+    await request_service.update_request(
+        session=context.session,
+        request_id=request_id,
+        reestr_api_order_id=order.order_id,
+        status=RequestStatusEnum.WAITINGFOREXTRACT,
+    )
+
+    await update.callback_query.answer("Заказ создан. По готовности вам придет сообщение.", show_alert=True)
+
+    await context.arq_app.enqueue_job('check_egrn_request_status', request_id, _defer_by=15 * 60)
+
+    await delete_message_or_skip(update.effective_message)
+
+    return ConversationHandler.END
+
+
 def get_num_of_rows_in_xlsx(filename: str, sheet_name: str = None, count_first: bool = False) -> int:
     from openpyxl import load_workbook, Workbook
     from openpyxl.worksheet.worksheet import Worksheet
@@ -857,7 +902,7 @@ def get_num_of_rows_in_xlsx(filename: str, sheet_name: str = None, count_first: 
 
 
 async def test_arq(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.arq_app.enqueue_job('check_egrn_request_status', update.effective_chat.id, _defer_by=60)
+    await context.arq_app.enqueue_job('check_egrn_request_status', 5)
 
 
 def get_application():
@@ -971,6 +1016,13 @@ def get_application():
         CommandHandler(
             'test_arq',
             test_arq,
+        )
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            pattern="r1r7_from_api_",
+            callback=get_extract_for_r1r7_from_api,
         )
     )
 

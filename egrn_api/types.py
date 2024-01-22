@@ -77,4 +77,4 @@ class CheckRequestResponse(BaseModel):
 
 class DownloadOrderResponse(BaseModel):
     file_bytes: bytes
-    file_extension: str
+    filename: str

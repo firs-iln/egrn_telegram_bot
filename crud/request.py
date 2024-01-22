@@ -18,6 +18,16 @@ async def get_request(session: AsyncSession, request_id: int) -> Request:
     return result.scalar_one_or_none()
 
 
+async def update_request(session: AsyncSession, request_id: int, **kwargs):
+    request = await get_request(session, request_id)
+    for key, value in kwargs.items():
+        if value is not None:
+            setattr(request, key, value)
+    await session.commit()
+    await session.refresh(request)
+    return request
+
+
 async def update_price(session: AsyncSession, request_id: int, price: int):
     stmt = (
         select(Request)
