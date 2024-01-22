@@ -21,3 +21,10 @@ class ClientServerAPI:
             response = await client.get(self.base_url + f"/{order_id}/{reason}/")
             response.raise_for_status()
             return response.json()
+
+    async def get_fio_file(self, order_id: int) -> bytes:
+        url = self.base_url + f"/{order_id}/fioFile/"
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+        return response.content

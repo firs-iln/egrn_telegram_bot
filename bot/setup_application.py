@@ -581,7 +581,7 @@ async def create_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     confirm_button = InlineKeyboardButton(text="Подтвердить", callback_data=f"r1r7_confirm_{request_id}")
     markup = InlineKeyboardMarkup([[edit_button, confirm_button]])
 
-    filename = f"ЕГРН {cad_id} {addr}".replace('/', '_').replace(':', '') + ".xlsx"
+    filename = f"Р1Р7 {cad_id} {addr}".replace('/', '_').replace(':', '') + ".xlsx"
 
     document_message = await update.effective_message.reply_document(doc, filename=filename)
 
@@ -605,7 +605,7 @@ async def api_confirm_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     fio_rows_count = 0
 
     if request.fio_is_provided:
-        fio_file = client_server_api.get_fio_file(request.order_id)
+        fio_file = await client_server_api.get_fio_file(request.order_id)
         fio_rows_count = get_num_of_rows_in_xlsx(fio_file)
 
     print(type(fio_rows_count))
@@ -852,7 +852,7 @@ async def api_asked_parts_column(update: Update, context: ContextTypes.DEFAULT_T
 
         registry_file = request.registry_filename
 
-        owners_file = client_server_api.get_request(request.id)
+        owners_file = await client_server_api.get_fio_file(request.id)
         owners_filename = f'files/{request.cadnum}.xlsx'
         with open(owners_filename, 'wb') as file:
             file.write(owners_file)
