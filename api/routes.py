@@ -139,7 +139,8 @@ async def process_file(session: AsyncSession, request_id: int):
     await bot.send_document(
         chat_id=admin.id,
         document=doc,
-        caption=f"РеестрМКД по заказу {request_id}\n\nПлощадь КВ+НЖ+ММ = {area:.1f} кв.м.\n\n{reply}",
+        caption=f"РеестрМКД по заказу {request.order_id}\n\nПлощадь КВ+НЖ+ММ = {area:.1f} кв.м.\n\n{reply}",
+        filename=f"{request.order_id}_registry.xlsx",
         reply_markup=markup,
     )
 

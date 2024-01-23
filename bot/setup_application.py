@@ -87,7 +87,7 @@ async def egrn_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file = await context.bot.get_file(update.message.document)
 
-    path_prefix_for_received_files = 'bot/files/received/'
+    path_prefix_for_received_files = 'files/received/'
 
     message_to_reply = update.message
 
@@ -236,7 +236,7 @@ async def got_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("i'm here")
 
     file = await context.bot.get_file(update.message.document)
-    received_files_path = 'bot/files/received/'
+    received_files_path = 'files/received/'
 
     document_name = update.message.document.file_name
     src = received_files_path + document_name
@@ -268,7 +268,7 @@ async def test_fio_got_registry(update: Update, context: ContextTypes.DEFAULT_TY
     print("test fio got registry")
     file = await context.bot.get_file(update.message.document)
 
-    received_files_path = 'bot/files/received/'
+    received_files_path = 'files/received/'
 
     document_name = update.message.document.file_name
     src = received_files_path + document_name
@@ -426,7 +426,7 @@ async def pics_chose(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["available_pages"] = floors_reply[1]
         floors_reply = floors_reply[0]
 
-        floors_file = f'bot/files/{cad}.txt'
+        floors_file = f'files/{cad}.txt'
         with open(floors_file, 'wt', encoding='utf-8') as f:
             f.write(floors_reply)
 
@@ -639,7 +639,7 @@ async def api_ask_edit_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def api_edit_r1r7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file = await context.bot.get_file(update.message.document)
 
-    received_files_path = 'bot/files/received/'
+    received_files_path = 'files/received/'
 
     document_name = update.message.document.file_name
 
