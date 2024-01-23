@@ -341,7 +341,7 @@ def make_registry_sheet(wb: Workbook, src: str, ws_rooms: Worksheet, ws_registry
 def parse_owners_by_cad_id(src: str, column_map: dict):
     wb: Workbook = load_workbook(src)
     # print(src, wb.sheetnames)
-    ws = wb['Реестр']
+    ws = wb.active
 
     A = ord('A')
 
